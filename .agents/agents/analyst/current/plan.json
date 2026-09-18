@@ -1,0 +1,157 @@
+{
+      "change_id": "CHG-VENUE-TASKS-1-2-7",
+      "objective": "Satisfy Tasks 1, 2, and 7 by verifying the Venue entity class, creating ApiError and Express
+        error-handling middleware, mounting the error handler in app.js, implementing VenueController.create, and
+        registering POST /venues route.",
+      "decisions": [
+        {
+          "id": "DEC-001",
+          "decision": "Verify existing backend/src/entities/Venue.js without modification as it already fulfills all
+          Task 1 requirements (generates UUID id and ISO createdAt, implements belongsTo(userId) boolean method, and toJSON
+  serialization)."
+        },
+        {
+          "id": "DEC-002",
+          "decision": "Create backend/src/errors/ApiError.js with an ApiError class extending Error that accepts
+  (statusCode, message) or (message, statusCode), exposes statusCode and status properties, and provides static
+  factory helpers (badRequest, forbidden, notFound, internal)."
+        },
+        {
+          "id": "DEC-003",
+          "decision": "Create backend/src/middleware/errorHandler.js defining standard Express 4-argument error-
+  handling middleware that extracts err.statusCode || err.status || 500 and err.message and responds with
+  status(code).json({ error: message })."
+        },
+        {
+          "id": "DEC-004",
+          "decision": "Modify backend/src/app.js to replace the inline placeholder error handler with the imported
+  errorHandler middleware from ./middleware/errorHandler."
+        },
+        {
+          "id": "DEC-005",
+          "decision": "Modify backend/src/controllers/VenueController.js to bind create in constructor, extract data
+  from req.body (and req.user), delegate to venueService.registerVenue, serialize the resulting venue via toJSON(),
+  return HTTP 201, and translate errors to next(error) when next is present or directly format { error: message }
+  response when called without next."
+        },
+        {
+          "id": "DEC-006",
+          "decision": "Modify backend/src/routes/venueRoutes.js to register router.post('/', venueController.create),
+  exposing POST /venues and POST /api/venues."
+        }
+      ],
+      "permitted_writes": [
+        "backend/src/errors/ApiError.js",
+        "backend/src/middleware/errorHandler.js",
+        "backend/src/app.js",
+        "backend/src/controllers/VenueController.js",
+        "backend/src/routes/venueRoutes.js"
+      ],
+      "invariants": [
+        "Do not modify AGENTS.md, .gitignore, or any file under .agents/**.",
+        "Preserve all existing GET /venues behaviors and pass existing tests in backend/tests/Venue.test.js and
+  backend/tests/venues.routes.test.js.",
+        "Error responses must strictly output { error: message } with appropriate HTTP status codes (400, 403, 500).",
+        "Successful venue creation must return HTTP status 201 with toJSON() serialized entity payload.",
+        "Maintain Clean Architecture boundary and exception propagation conventions."
+      ],
+      "affected_files": [
+        {
+          "path": "backend/src/entities/Venue.js",
+          "operation": "VERIFY",
+          "instructions": [
+            "Verify that Venue constructor takes (name, description, location, ownerId) or props object.",
+            "Verify that id is generated internally via crypto.randomUUID() when not provided.",
+            "Verify that createdAt is generated internally as ISO string when not provided.",
+            "Verify that belongsTo(userId) returns boolean indicating whether venue belongs to userId.",
+            "Verify that toJSON() returns an object with { id, name, description, location, ownerId, createdAt }."
+          ],
+          "acceptance": [
+            "All tests in backend/tests/Venue.test.js pass without requiring alterations to
+  backend/src/entities/Venue.js."
+          ]
+        },
+        {
+          "path": "backend/src/errors/ApiError.js",
+          "operation": "CREATE",
+          "instructions": [
+            "Create ApiError class extending Error.",
+            "Accept statusCode and message in constructor (supporting both (statusCode, message) and (message,
+  statusCode)).",
+            "Set this.statusCode and this.status to the given HTTP status code (default 500).",
+            "Set this.name = 'ApiError'.",
+            "Provide static factory methods: badRequest(msg = 'Bad Request'), forbidden(msg = 'Forbidden'),
+  notFound(msg = 'Not Found'), internal(msg = 'Internal Server Error').",
+            "Export ApiError both as default and named export (module.exports = ApiError; module.exports.ApiError =
+  ApiError;)."
+          ],
+          "acceptance": [
+            "const err = new ApiError(400, 'Invalid input'); expect(err instanceof Error).toBe(true); expect(err.
+  statusCode).toBe(400); expect(err.message).toBe('Invalid input');",
+            "const err403 = ApiError.forbidden('Access denied'); expect(err403.statusCode).toBe(403); expect(err403.
+  message).toBe('Access denied');"
+          ]
+        },
+        {
+          "path": "backend/src/middleware/errorHandler.js",
+          "operation": "CREATE",
+          "instructions": [
+            "Create Express error-handling middleware function with signature (err, req, res, next).",
+            "Extract status code as err.statusCode || err.status || 500.",
+            "Extract message as err.message || 'Internal Server Error'.",
+            "Return res.status(status).json({ error: message }).",
+            "Export the function both as default and named export (module.exports = errorHandler; module.exports.
+  errorHandler = errorHandler;)."
+          ],
+          "acceptance": [
+            "Calling errorHandler with an ApiError(400, 'Bad Request') sends status 400 with body { error: 'Bad
+  Request' }.",
+            "Calling errorHandler with a generic Error('Database error') sends status 500 with body { error:
+  'Database error' }."
+          ]
+        },
+        {
+          "path": "backend/src/app.js",
+          "operation": "MODIFY",
+          "instructions": [
+            "Import errorHandler from './middleware/errorHandler'.",
+            "Replace the inline error-handling middleware placeholder with app.use(errorHandler)."
+          ],
+          "acceptance": [
+            "backend/src/app.js uses the imported errorHandler middleware from ./middleware/errorHandler."
+          ]
+        },
+        {
+          "path": "backend/src/controllers/VenueController.js",
+          "operation": "MODIFY",
+          "instructions": [
+            "In VenueController constructor, bind create: this.create = this.create.bind(this);",
+            "Implement async create(req, res, next) method:",
+            "Extract data from req.body (and req.user / req.currentUser if present).",
+            "Call await this.venueService.registerVenue(req.body, req.user).",
+            "Serialize result using typeof venue?.toJSON === 'function' ? venue.toJSON() : venue.",
+            "Return res.status(201).json(venueJson).",
+            "In catch block: if typeof next === 'function', return next(error); otherwise return res.status(error.
+  statusCode || error.status || 500).json({ error: error.message })."
+          ],
+          "acceptance": [
+            "Calling controller.create(req, res, next) with valid body calls venueService.registerVenue, returns 201,
+  and outputs serialized venue JSON.",
+            "Calling controller.create(req, res, next) when venueService.registerVenue throws an ApiError passes
+  error to next(error) or directly responds with proper status code and { error: message }."
+          ]
+        },
+        {
+          "path": "backend/src/routes/venueRoutes.js",
+          "operation": "MODIFY",
+          "instructions": [
+            "Register POST route on router: router.post('/', venueController.create);"
+          ],
+          "acceptance": [
+            "POST /venues routes to venueController.create.",
+            "POST /api/venues routes to venueController.create."
+          ]
+        }
+      ],
+      "blockers": []
+}

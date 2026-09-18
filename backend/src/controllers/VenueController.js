@@ -12,6 +12,7 @@ class VenueController {
   constructor(venueService = defaultVenueService) {
     this.venueService = venueService;
     this.list = this.list.bind(this);
+    this.create = this.create.bind(this);
   }
 
   /**
@@ -37,7 +38,26 @@ class VenueController {
     }
   }
 
-  // Task 2 (P1): create(req, res) will be implemented by P1
+  /**
+   * Task 2: VenueController.create
+   * Calls VenueService.registerVenue(req.body, req.user) and returns 201 with serialized venue JSON.
+   * 
+   * @param {object} req - Express request
+   * @param {object} res - Express response
+   * @param {function} [next] - Express next middleware
+   */
+  async create(req, res, next) {
+    try {
+      const venue = await this.venueService.registerVenue(req.body, req.user);
+      const venueJson = typeof venue?.toJSON === 'function' ? venue.toJSON() : venue;
+      return res.status(201).json(venueJson);
+    } catch (error) {
+      if (typeof next === 'function') {
+        return next(error);
+      }
+      return res.status(error.statusCode || error.status || 500).json({ error: error.message });
+    }
+  }
 }
 
 const venueController = new VenueController();
