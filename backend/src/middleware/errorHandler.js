@@ -6,7 +6,7 @@
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
  */
-function errorHandler(err, req, res, next) {
+function errorHandler(err, _req, res, _next) {
   const status = err.statusCode || err.status || 500;
   const message = err.message || 'Internal Server Error';
   return res.status(status).json({ error: message });
