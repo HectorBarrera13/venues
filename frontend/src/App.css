@@ -508,25 +508,44 @@
      DOM. */
   z-index: 1100;
 }
-.location-picker-search > input {
+.location-picker-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.location-picker-search-icon {
+  position: absolute;
+  left: 13px;
+  width: 15px;
+  height: 15px;
+  color: #97a3b8;
+  pointer-events: none;
+}
+/* Deliberately styled as a helper/search pill, not a field the person
+   fills in to submit the form — smaller, rounded, muted colors — so it
+   doesn't read as another required input next to Nombre/Descripción. */
+.location-picker-search-box input {
   width: 100%;
-  border: 1px solid #cbd8e8;
-  border-radius: 8px;
-  padding: 13px 14px;
-  color: #1a2942;
-  background: #fbfdff;
+  border: 1px solid #dce5f1;
+  border-radius: 999px;
+  padding: 10px 14px 10px 36px;
+  color: #45516b;
+  background: #f4f7fb;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.84rem;
   outline: none;
   transition:
     border-color 160ms ease,
     box-shadow 160ms ease,
     background 160ms ease;
 }
-.location-picker-search > input:focus {
-  border-color: #1674df;
+.location-picker-search-box input::placeholder {
+  color: #97a3b8;
+}
+.location-picker-search-box input:focus {
+  border-color: #9db8db;
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(22, 116, 223, 0.14);
+  box-shadow: 0 0 0 3px rgba(22, 116, 223, 0.1);
 }
 .location-picker-suggestions {
   position: absolute;
