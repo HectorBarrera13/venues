@@ -2,56 +2,67 @@
 
 ## Only writable target
 
-• backend/src/errors/ApiError.js
-• backend/src/middleware/errorHandler.js
-• backend/src/app.js
-• backend/src/controllers/VenueController.js
-• backend/src/routes/venueRoutes.js
+- `backend/tests/ApiError.test.js`
+- `backend/tests/errorHandler.test.js`
+- `backend/tests/VenueController.test.js`
+- `backend/tests/venues.routes.test.js`
 
-Do not modify AGENTS.md, .gitignore, or any file under .agents/\*\*.
+Do not modify AGENTS.md, .gitignore, or any file under .agents/**.
 
 ## Instructions
 
-1. **Create ApiError.js**:
-   • Define class ApiError.js extending Error.
-   • In constructor, accept (statusCodeOrMessage, messageOrStatusCode). Parse status code (defaulting to 500 if
-   unspecified) and message (defaulting to 'Internal Server Error' if unspecified).
-   • Set this.statusCode = statusCode, this.status = statusCode, and this.name = 'ApiError'.
-   • Add static factory helper methods:
-   • static badRequest(message = 'Bad Request') { return new ApiError(400, message); }
-   • static forbidden(message = 'Forbidden') { return new ApiError(403, message); }
-   • static notFound(message = 'Not Found') { return new ApiError(404, message); }
-   • static internal(message = 'Internal Server Error') { return new ApiError(500, message); }
-   • Export: module.exports = ApiError; module.exports.ApiError = ApiError;.
-2. **Create errorHandler.js**:
-   • Define Express error-handling middleware function (err, req, res, next).
-   • Read status code: const status = err.statusCode || err.status || 500;.
-   • Read error message: const message = err.message || 'Internal Server Error';.
-   • Respond: return res.status(status).json({ error: message });.
-   • Export: module.exports = errorHandler; module.exports.errorHandler = errorHandler;.
-3. **Modify app.js**:
-   • Import errorHandler via const errorHandler = require('./middleware/errorHandler');.
-   • Replace the inline error middleware placeholder with app.use(errorHandler);.
-4. **Modify VenueController.js**:
-   • In constructor, bind this.create = this.create.bind(this);.
-   • Implement async create(req, res, next):
-   • Extract req.body and req.user.
-   • Call await this.venueService.registerVenue(req.body, req.user).
-   • Serialize result with typeof venue?.toJSON === 'function' ? venue.toJSON() : venue.
-   • Respond with return res.status(201).json(venueJson);.
-   • In catch block:
-   • If typeof next === 'function', return next(error);.
-   • Otherwise, return res.status(error.statusCode || error.status || 500).json({ error: error.message });.
+1. **Create backend/tests/ApiError.test.js**:
+   - Import `ApiError` from `../src/errors/ApiError`.
+   - Test constructor parameter flexibility:
+     - `(statusCode, message)`: sets `statusCode`, `status`, `message`, `name = 'ApiError'`, and is `instanceof Error`.
+     - `(message, statusCode)`: sets `statusCode`, `status`, and `message` correctly.
+     - default parameters: defaults `statusCode` to 500 and `message` to `'Internal Server Error'`.
+   - Test static factory helper methods:
+     - `ApiError.badRequest(message)`: returns 400 with provided or default message.
+     - `ApiError.forbidden(message)`: returns 403 with provided or default message.
+     - `ApiError.notFound(message)`: returns 404 with provided or default message.
+     - `ApiError.internal(message)`: returns 500 with provided or default message.
+   - Test dual exports: verify both default export and named export `module.exports.ApiError`.
 
-5. **Modify venueRoutes.js**:
-   • Register router.post('/', venueController.create); under // POST /venues (Task 2).
+2. **Create backend/tests/errorHandler.test.js**:
+   - Import `errorHandler` from `../src/middleware/errorHandler` and `ApiError` from `../src/errors/ApiError`.
+   - Test handling `ApiError` instances:
+     - When passed an error with `statusCode` (e.g. 400), responds with `res.status(400).json({ error: message })`.
+     - When passed an error with `statusCode` 403, responds with `res.status(403).json({ error: message })`.
+   - Test handling standard `Error` instances without explicit status code:
+     - Defaults status to 500 and responds with `res.status(500).json({ error: error.message })`.
+   - Test fallback when error has empty message:
+     - Defaults to `'Internal Server Error'`.
+   - Test dual exports: verify both default export and named export `module.exports.errorHandler`.
+
+3. **Modify backend/tests/VenueController.test.js**:
+   - Import `ApiError` from `../src/errors/ApiError`.
+   - Add a new `describe('VenueController.create (Task 2)', ...)` suite preserving the existing `describe('VenueController.list (Task 5)', ...)`.
+   - In `beforeEach`, instantiate `mockVenueService` with both `listVenues: jest.fn()` and `registerVenue: jest.fn()`.
+   - Test calling `controller.create(req, res, next)`:
+     - Passes `req.body` and `req.user` to `venueService.registerVenue`.
+     - When venue has a `toJSON()` method, serializes with `toJSON()` and returns 201 with the serialized payload.
+     - When venue has no `toJSON()` method, returns 201 with the plain venue object.
+   - Test error propagation:
+     - When `registerVenue` throws an error and `next` is a function, calls `next(error)`.
+     - When `registerVenue` throws an `ApiError(400, 'Invalid data')` and `next` is not provided, responds with `res.status(400).json({ error: 'Invalid data' })`.
+     - When `registerVenue` throws a generic `Error('Crash')` and `next` is not provided, responds with `res.status(500).json({ error: 'Crash' })`.
+
+4. **Modify backend/tests/venues.routes.test.js**:
+   - Import `venueService` from `../src/services/VenueService` and `ApiError` from `../src/errors/ApiError`.
+   - Add a new `describe('POST /venues Route Integration (Task 2 & 7)', ...)` suite alongside the existing GET route tests.
+   - Use `jest.spyOn(venueService, 'registerVenue')` inside the suite, and restore the spy in `afterEach`.
+   - Test successful venue registration via `POST /venues`: returns 201 and JSON payload with created venue.
+   - Test validation failure: when `registerVenue` throws `ApiError.badRequest('Name is required')`, `POST /venues` returns 400 and `{ error: 'Name is required' }`.
+   - Test permission failure: when `registerVenue` throws `ApiError.forbidden('Venue owner required')`, `POST /venues` returns 403 and `{ error: 'Venue owner required' }`.
+   - Test unexpected failure: when `registerVenue` throws `new Error('Database disconnected')`, `POST /venues` returns 500 and `{ error: 'Database disconnected' }`.
+   - Test proxy compatibility: `POST /api/venues` also handles the request and returns 201.
 
 ## Mandatory behavior
 
-1. Verify that the class ApiError.js exists and is exported from backend/src/errors/ApiError.js.
-2. Verify that errorHandler middleware exists and is exported from backend/src/middleware/errorHandler.js.
-3. Verify that app.use(errorHandler) is registered in app.js.
-4. Verify that create is defined and bound in VenueController.js.
-5. Verify that router.post('/', venueController.create) is registered in venueRoutes.js.
-6. Verify that Venue.js constructor, belongsTo, and toJSON are intact.
-7. Do not perform any tests or verifications.
+1. Verify that `backend/tests/ApiError.test.js` exists and is populated.
+2. Verify that `backend/tests/errorHandler.test.js` exists and is populated.
+3. Verify that `VenueController.create` tests are added to `backend/tests/VenueController.test.js`.
+4. Verify that `POST /venues` integration tests are added to `backend/tests/venues.routes.test.js`.
+5. Verify that `backend/tests/Venue.test.js` remains intact.
+6. Do not perform any tests or verifications.

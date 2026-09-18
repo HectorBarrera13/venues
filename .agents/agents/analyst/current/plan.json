@@ -1,157 +1,120 @@
 {
-      "change_id": "CHG-VENUE-TASKS-1-2-7",
-      "objective": "Satisfy Tasks 1, 2, and 7 by verifying the Venue entity class, creating ApiError and Express
-        error-handling middleware, mounting the error handler in app.js, implementing VenueController.create, and
-        registering POST /venues route.",
-      "decisions": [
-        {
-          "id": "DEC-001",
-          "decision": "Verify existing backend/src/entities/Venue.js without modification as it already fulfills all
-          Task 1 requirements (generates UUID id and ISO createdAt, implements belongsTo(userId) boolean method, and toJSON
-  serialization)."
-        },
-        {
-          "id": "DEC-002",
-          "decision": "Create backend/src/errors/ApiError.js with an ApiError class extending Error that accepts
-  (statusCode, message) or (message, statusCode), exposes statusCode and status properties, and provides static
-  factory helpers (badRequest, forbidden, notFound, internal)."
-        },
-        {
-          "id": "DEC-003",
-          "decision": "Create backend/src/middleware/errorHandler.js defining standard Express 4-argument error-
-  handling middleware that extracts err.statusCode || err.status || 500 and err.message and responds with
-  status(code).json({ error: message })."
-        },
-        {
-          "id": "DEC-004",
-          "decision": "Modify backend/src/app.js to replace the inline placeholder error handler with the imported
-  errorHandler middleware from ./middleware/errorHandler."
-        },
-        {
-          "id": "DEC-005",
-          "decision": "Modify backend/src/controllers/VenueController.js to bind create in constructor, extract data
-  from req.body (and req.user), delegate to venueService.registerVenue, serialize the resulting venue via toJSON(),
-  return HTTP 201, and translate errors to next(error) when next is present or directly format { error: message }
-  response when called without next."
-        },
-        {
-          "id": "DEC-006",
-          "decision": "Modify backend/src/routes/venueRoutes.js to register router.post('/', venueController.create),
-  exposing POST /venues and POST /api/venues."
-        }
+  "change_id": "CHG-VENUE-TESTS-TASKS-1-2-7",
+  "objective": "Add comprehensive unit and integration tests for previously implemented Tasks 1, 2, and 7, covering Venue entity, VenueController.create, POST /venues routes, ApiError, and errorHandler middleware.",
+  "decisions": [
+    {
+      "id": "DEC-001",
+      "decision": "Verify existing backend/tests/Venue.test.js as it already completely tests Task 1 (positional/options constructor, auto id/createdAt generation, belongsTo, and toJSON serialization)."
+    },
+    {
+      "id": "DEC-002",
+      "decision": "Create backend/tests/ApiError.test.js to test ApiError constructor flexibility, property assignments (statusCode, status, message, name), inheritance from Error, and static factory helpers (badRequest, forbidden, notFound, internal)."
+    },
+    {
+      "id": "DEC-003",
+      "decision": "Create backend/tests/errorHandler.test.js to test Express error-handling middleware behavior, ensuring it formats { error: message } with appropriate status code from ApiError or defaults to 500 for generic errors."
+    },
+    {
+      "id": "DEC-004",
+      "decision": "Modify backend/tests/VenueController.test.js to add a describe block for VenueController.create (Task 2), testing parameter extraction from req.body and req.user, delegation to venueService.registerVenue, toJSON serialization, 201 response, and error handling via next(error) or direct response fallback."
+    },
+    {
+      "id": "DEC-005",
+      "decision": "Modify backend/tests/venues.routes.test.js to add an integration test suite for POST /venues and POST /api/venues (Tasks 2 & 7), verifying successful 201 creation with serialized venue response, error translation (400, 403, 500) via errorHandler, and proxy compatibility."
+    }
+  ],
+  "permitted_writes": [
+    "backend/tests/ApiError.test.js",
+    "backend/tests/errorHandler.test.js",
+    "backend/tests/VenueController.test.js",
+    "backend/tests/venues.routes.test.js"
+  ],
+  "invariants": [
+    "Do not modify AGENTS.md, .gitignore, or any file under .agents/**.",
+    "Preserve all existing tests in backend/tests/Venue.test.js, backend/tests/VenueController.test.js, backend/tests/VenueRepository.test.js, backend/tests/VenueService.test.js, and backend/tests/venues.routes.test.js.",
+    "Do not modify any source code files under backend/src/** unless directly necessary for tests to execute.",
+    "Tests must follow Jest and Supertest patterns already used across the backend codebase.",
+    "All tests must be deterministic, isolated, and leave no side-effects in shared in-memory repositories."
+  ],
+  "affected_files": [
+    {
+      "path": "backend/tests/Venue.test.js",
+      "operation": "VERIFY",
+      "instructions": [
+        "Verify that Venue.test.js tests constructor parameter handling and id/createdAt generation.",
+        "Verify that Venue.test.js tests belongsTo(userId) with matching, non-matching, null, and undefined values.",
+        "Verify that Venue.test.js tests toJSON() serialization."
       ],
-      "permitted_writes": [
-        "backend/src/errors/ApiError.js",
-        "backend/src/middleware/errorHandler.js",
-        "backend/src/app.js",
-        "backend/src/controllers/VenueController.js",
-        "backend/src/routes/venueRoutes.js"
+      "acceptance": [
+        "Venue.test.js passes without modifications and validates all Task 1 requirements."
+      ]
+    },
+    {
+      "path": "backend/tests/ApiError.test.js",
+      "operation": "CREATE",
+      "instructions": [
+        "Import ApiError from '../src/errors/ApiError'.",
+        "Test constructor with (statusCode, message): verify statusCode, status, message, name = 'ApiError', and instanceof Error.",
+        "Test constructor with (message, statusCode): verify statusCode, status, and message are properly set.",
+        "Test constructor with defaults: verify statusCode = 500 and message = 'Internal Server Error'.",
+        "Test static helper ApiError.badRequest(): returns instance with statusCode 400 and provided or default 'Bad Request' message.",
+        "Test static helper ApiError.forbidden(): returns instance with statusCode 403 and provided or default 'Forbidden' message.",
+        "Test static helper ApiError.notFound(): returns instance with statusCode 404 and provided or default 'Not Found' message.",
+        "Test static helper ApiError.internal(): returns instance with statusCode 500 and provided or default 'Internal Server Error' message.",
+        "Test named export: verify require('../src/errors/ApiError').ApiError equals default export."
       ],
-      "invariants": [
-        "Do not modify AGENTS.md, .gitignore, or any file under .agents/**.",
-        "Preserve all existing GET /venues behaviors and pass existing tests in backend/tests/Venue.test.js and
-  backend/tests/venues.routes.test.js.",
-        "Error responses must strictly output { error: message } with appropriate HTTP status codes (400, 403, 500).",
-        "Successful venue creation must return HTTP status 201 with toJSON() serialized entity payload.",
-        "Maintain Clean Architecture boundary and exception propagation conventions."
+      "acceptance": [
+        "All ApiError unit tests pass when run with Jest."
+      ]
+    },
+    {
+      "path": "backend/tests/errorHandler.test.js",
+      "operation": "CREATE",
+      "instructions": [
+        "Import errorHandler from '../src/middleware/errorHandler' and ApiError from '../src/errors/ApiError'.",
+        "Test error handling for ApiError: mocks res.status().json(), passes ApiError(400, 'Bad input'), expects res.status(400) and res.json({ error: 'Bad input' }).",
+        "Test error handling for 403 ApiError: passes ApiError.forbidden('Forbidden'), expects res.status(403) and res.json({ error: 'Forbidden' }).",
+        "Test error handling for generic Error: passes new Error('Database down'), expects res.status(500) and res.json({ error: 'Database down' }).",
+        "Test error handling when error message is empty: defaults to 'Internal Server Error'.",
+        "Test named export: verify require('../src/middleware/errorHandler').errorHandler equals default export."
       ],
-      "affected_files": [
-        {
-          "path": "backend/src/entities/Venue.js",
-          "operation": "VERIFY",
-          "instructions": [
-            "Verify that Venue constructor takes (name, description, location, ownerId) or props object.",
-            "Verify that id is generated internally via crypto.randomUUID() when not provided.",
-            "Verify that createdAt is generated internally as ISO string when not provided.",
-            "Verify that belongsTo(userId) returns boolean indicating whether venue belongs to userId.",
-            "Verify that toJSON() returns an object with { id, name, description, location, ownerId, createdAt }."
-          ],
-          "acceptance": [
-            "All tests in backend/tests/Venue.test.js pass without requiring alterations to
-  backend/src/entities/Venue.js."
-          ]
-        },
-        {
-          "path": "backend/src/errors/ApiError.js",
-          "operation": "CREATE",
-          "instructions": [
-            "Create ApiError class extending Error.",
-            "Accept statusCode and message in constructor (supporting both (statusCode, message) and (message,
-  statusCode)).",
-            "Set this.statusCode and this.status to the given HTTP status code (default 500).",
-            "Set this.name = 'ApiError'.",
-            "Provide static factory methods: badRequest(msg = 'Bad Request'), forbidden(msg = 'Forbidden'),
-  notFound(msg = 'Not Found'), internal(msg = 'Internal Server Error').",
-            "Export ApiError both as default and named export (module.exports = ApiError; module.exports.ApiError =
-  ApiError;)."
-          ],
-          "acceptance": [
-            "const err = new ApiError(400, 'Invalid input'); expect(err instanceof Error).toBe(true); expect(err.
-  statusCode).toBe(400); expect(err.message).toBe('Invalid input');",
-            "const err403 = ApiError.forbidden('Access denied'); expect(err403.statusCode).toBe(403); expect(err403.
-  message).toBe('Access denied');"
-          ]
-        },
-        {
-          "path": "backend/src/middleware/errorHandler.js",
-          "operation": "CREATE",
-          "instructions": [
-            "Create Express error-handling middleware function with signature (err, req, res, next).",
-            "Extract status code as err.statusCode || err.status || 500.",
-            "Extract message as err.message || 'Internal Server Error'.",
-            "Return res.status(status).json({ error: message }).",
-            "Export the function both as default and named export (module.exports = errorHandler; module.exports.
-  errorHandler = errorHandler;)."
-          ],
-          "acceptance": [
-            "Calling errorHandler with an ApiError(400, 'Bad Request') sends status 400 with body { error: 'Bad
-  Request' }.",
-            "Calling errorHandler with a generic Error('Database error') sends status 500 with body { error:
-  'Database error' }."
-          ]
-        },
-        {
-          "path": "backend/src/app.js",
-          "operation": "MODIFY",
-          "instructions": [
-            "Import errorHandler from './middleware/errorHandler'.",
-            "Replace the inline error-handling middleware placeholder with app.use(errorHandler)."
-          ],
-          "acceptance": [
-            "backend/src/app.js uses the imported errorHandler middleware from ./middleware/errorHandler."
-          ]
-        },
-        {
-          "path": "backend/src/controllers/VenueController.js",
-          "operation": "MODIFY",
-          "instructions": [
-            "In VenueController constructor, bind create: this.create = this.create.bind(this);",
-            "Implement async create(req, res, next) method:",
-            "Extract data from req.body (and req.user / req.currentUser if present).",
-            "Call await this.venueService.registerVenue(req.body, req.user).",
-            "Serialize result using typeof venue?.toJSON === 'function' ? venue.toJSON() : venue.",
-            "Return res.status(201).json(venueJson).",
-            "In catch block: if typeof next === 'function', return next(error); otherwise return res.status(error.
-  statusCode || error.status || 500).json({ error: error.message })."
-          ],
-          "acceptance": [
-            "Calling controller.create(req, res, next) with valid body calls venueService.registerVenue, returns 201,
-  and outputs serialized venue JSON.",
-            "Calling controller.create(req, res, next) when venueService.registerVenue throws an ApiError passes
-  error to next(error) or directly responds with proper status code and { error: message }."
-          ]
-        },
-        {
-          "path": "backend/src/routes/venueRoutes.js",
-          "operation": "MODIFY",
-          "instructions": [
-            "Register POST route on router: router.post('/', venueController.create);"
-          ],
-          "acceptance": [
-            "POST /venues routes to venueController.create.",
-            "POST /api/venues routes to venueController.create."
-          ]
-        }
+      "acceptance": [
+        "All errorHandler unit tests pass when run with Jest."
+      ]
+    },
+    {
+      "path": "backend/tests/VenueController.test.js",
+      "operation": "MODIFY",
+      "instructions": [
+        "Import ApiError from '../src/errors/ApiError'.",
+        "Add describe('VenueController.create (Task 2)') block alongside existing describe('VenueController.list (Task 5)').",
+        "Test calling create with req.body and req.user: verify venueService.registerVenue is called with req.body and req.user, returns 201, and outputs serialized venue JSON.",
+        "Test calling create with venue entity lacking toJSON: returns 201 with raw venue object.",
+        "Test error propagation when next is provided: when venueService.registerVenue throws an ApiError or Error, verify next(error) is called.",
+        "Test error handling when next is not provided: when venueService.registerVenue throws an ApiError(400, 'Invalid'), verify res.status(400).json({ error: 'Invalid' }); when generic Error thrown, verify res.status(500).json({ error: message })."
       ],
-      "blockers": []
+      "acceptance": [
+        "All tests in VenueController.test.js (both list and create suites) pass when run with Jest."
+      ]
+    },
+    {
+      "path": "backend/tests/venues.routes.test.js",
+      "operation": "MODIFY",
+      "instructions": [
+        "Import venueService from '../src/services/VenueService' and ApiError from '../src/errors/ApiError'.",
+        "Add describe('POST /venues Route Integration (Task 2 & 7)') block.",
+        "Use jest.spyOn(venueService, 'registerVenue') or mock implementation to isolate service logic for route integration tests.",
+        "Test successful venue creation: POST /venues with valid body returns 201 with serialized venue JSON.",
+        "Test validation error response: when registerVenue throws ApiError.badRequest('Name is required'), POST /venues returns 400 with { error: 'Name is required' }.",
+        "Test unauthorized / forbidden response: when registerVenue throws ApiError.forbidden('Forbidden'), POST /venues returns 403 with { error: 'Forbidden' }.",
+        "Test internal server error response: when registerVenue throws generic Error('Internal crash'), POST /venues returns 500 with { error: 'Internal crash' }.",
+        "Test proxy route compatibility: POST /api/venues returns 201 with serialized venue JSON.",
+        "Restore spies in afterEach / beforeEach."
+      ],
+      "acceptance": [
+        "All integration tests in venues.routes.test.js (both GET and POST suites) pass when run with Jest."
+      ]
+    }
+  ],
+  "blockers": []
 }

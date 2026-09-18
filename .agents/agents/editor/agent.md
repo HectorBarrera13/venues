@@ -55,6 +55,6 @@ Implement the current target using only approved instructions.
 
 When the one target is complete, reply only: `DONE`.
 
-fill the [execution report](./current/execution-report.json) with the data specified in [execution-report.schema.json](./resources/execution-report.schema.json).
+always fill the [execution report](./current/execution-report.json) with the data specified in [execution-report.schema.json](./resources/execution-report.schema.json).
 
 If you cannot complete the task (related to editor-task specification), report the reason in the [editor feedback](./current/editor-feedback.md).
