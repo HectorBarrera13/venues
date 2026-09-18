@@ -28,6 +28,20 @@ class VenueApiClient {
     }
     return venues
   }
+
+  async createVenue(data) {
+    const response = await fetch(`${this.baseUrl}/venues`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) {
+      throw new Error('No pudimos registrar el recinto en este momento.')
+    }
+
+    return response.json()
+  }
 }
 
 const venueApiClient = new VenueApiClient()
