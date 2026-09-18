@@ -1,7 +1,8 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "type": "module",
+  "main": "src/server.js",
   "scripts": {
     "test": "jest",
     "start": "node src/server.js",
