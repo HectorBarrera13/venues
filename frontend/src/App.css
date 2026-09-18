@@ -497,6 +497,13 @@
 .location-picker {
   display: grid;
   gap: 10px;
+  /* Contains every z-index inside this component (the search dropdown's
+     1100, the zoom hint's 1100, Leaflet's own up to 1000) in their own
+     stacking context, so none of them leak out and compete with
+     page-level elements like the sticky header (z-index: 10) — without
+     isolation, a value high enough to beat Leaflet ends up beating
+     everything else on the page too. */
+  isolation: isolate;
 }
 .location-picker-search {
   position: relative;
