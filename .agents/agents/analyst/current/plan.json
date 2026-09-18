@@ -1,118 +1,96 @@
 {
-  "change_id": "CHG-VENUE-TESTS-TASKS-1-2-7",
-  "objective": "Add comprehensive unit and integration tests for previously implemented Tasks 1, 2, and 7, covering Venue entity, VenueController.create, POST /venues routes, ApiError, and errorHandler middleware.",
+  "change_id": "CHG-REMOVE-VENUE-AUTH-REQUIREMENT",
+  "objective": "Eliminate mandatory authentication/credential check in venue registration so that frontend requests to POST /venues succeed without 403 Forbidden errors while credentials are not yet configured.",
   "decisions": [
     {
       "id": "DEC-001",
-      "decision": "Verify existing backend/tests/Venue.test.js as it already completely tests Task 1 (positional/options constructor, auto id/createdAt generation, belongsTo, and toJSON serialization)."
+      "decision": "Remove the mandatory role check ('Only venue owners can register venues') from VenueService.registerVenue in backend/src/services/VenueService.js so unauthenticated requests and requests without credentials do not throw a 403 Forbidden ApiError."
     },
     {
       "id": "DEC-002",
-      "decision": "Create backend/tests/ApiError.test.js to test ApiError constructor flexibility, property assignments (statusCode, status, message, name), inheritance from Error, and static factory helpers (badRequest, forbidden, notFound, internal)."
+      "decision": "In VenueService.registerVenue, assign the venue ownerId using a fallback chain: currentUser?.userId || currentUser?.id || data?.ownerId || 'venue-owner-1', ensuring the Venue entity always has a valid ownerId without requiring credentials."
     },
     {
       "id": "DEC-003",
-      "decision": "Create backend/tests/errorHandler.test.js to test Express error-handling middleware behavior, ensuring it formats { error: message } with appropriate status code from ApiError or defaults to 500 for generic errors."
+      "decision": "Preserve required field validation (name, description, location) in VenueService.registerVenue, keeping the 400 Bad Request error contract intact for invalid payloads."
     },
     {
       "id": "DEC-004",
-      "decision": "Modify backend/tests/VenueController.test.js to add a describe block for VenueController.create (Task 2), testing parameter extraction from req.body and req.user, delegation to venueService.registerVenue, toJSON serialization, 201 response, and error handling via next(error) or direct response fallback."
-    },
-    {
-      "id": "DEC-005",
-      "decision": "Modify backend/tests/venues.routes.test.js to add an integration test suite for POST /venues and POST /api/venues (Tasks 2 & 7), verifying successful 201 creation with serialized venue response, error translation (400, 403, 500) via errorHandler, and proxy compatibility."
+      "decision": "Extend backend/tests/VenueService.test.js with comprehensive unit tests for registerVenue covering unauthenticated creation, authenticated creation, fallback ownerId resolution, and required field validation."
     }
   ],
   "permitted_writes": [
-    "backend/tests/ApiError.test.js",
-    "backend/tests/errorHandler.test.js",
-    "backend/tests/VenueController.test.js",
-    "backend/tests/venues.routes.test.js"
+    "backend/src/services/VenueService.js",
+    "backend/tests/VenueService.test.js"
   ],
   "invariants": [
     "Do not modify AGENTS.md, .gitignore, or any file under .agents/**.",
-    "Preserve all existing tests in backend/tests/Venue.test.js, backend/tests/VenueController.test.js, backend/tests/VenueRepository.test.js, backend/tests/VenueService.test.js, and backend/tests/venues.routes.test.js.",
-    "Do not modify any source code files under backend/src/** unless directly necessary for tests to execute.",
-    "Tests must follow Jest and Supertest patterns already used across the backend codebase.",
-    "All tests must be deterministic, isolated, and leave no side-effects in shared in-memory repositories."
+    "Preserve all existing venue field validations (name, description, location must be non-empty strings).",
+    "Preserve Venue persistence through VenueRepository.",
+    "Existing unit and integration tests across backend/tests/ must continue to pass without regression."
   ],
   "affected_files": [
     {
-      "path": "backend/tests/Venue.test.js",
-      "operation": "VERIFY",
+      "path": "backend/src/services/VenueService.js",
+      "operation": "MODIFY",
       "instructions": [
-        "Verify that Venue.test.js tests constructor parameter handling and id/createdAt generation.",
-        "Verify that Venue.test.js tests belongsTo(userId) with matching, non-matching, null, and undefined values.",
-        "Verify that Venue.test.js tests toJSON() serialization."
+        "In registerVenue(data, currentUser):",
+        "  - Remove the currentUser role check that throws ApiError(403, 'Only venue owners can register venues').",
+        "  - Retain required field validation for name, description, and location.",
+        "  - Resolve ownerId = currentUser?.userId || currentUser?.id || data?.ownerId || 'venue-owner-1'.",
+        "  - Construct venue with new Venue(name.trim(), description.trim(), location.trim(), ownerId).",
+        "  - Return this.venueRepository.save(venue).",
+        "  - Update method JSDoc to reflect that authentication is optional."
       ],
       "acceptance": [
-        "Venue.test.js passes without modifications and validates all Task 1 requirements."
+        "registerVenue does not throw 403 when currentUser is undefined or does not possess the venue_owner role.",
+        "A valid Venue instance with ownerId is created and persisted in the repository."
       ]
     },
     {
-      "path": "backend/tests/ApiError.test.js",
-      "operation": "CREATE",
+      "path": "backend/tests/VenueService.test.js",
+      "operation": "MODIFY",
       "instructions": [
-        "Import ApiError from '../src/errors/ApiError'.",
-        "Test constructor with (statusCode, message): verify statusCode, status, message, name = 'ApiError', and instanceof Error.",
-        "Test constructor with (message, statusCode): verify statusCode, status, and message are properly set.",
-        "Test constructor with defaults: verify statusCode = 500 and message = 'Internal Server Error'.",
-        "Test static helper ApiError.badRequest(): returns instance with statusCode 400 and provided or default 'Bad Request' message.",
-        "Test static helper ApiError.forbidden(): returns instance with statusCode 403 and provided or default 'Forbidden' message.",
-        "Test static helper ApiError.notFound(): returns instance with statusCode 404 and provided or default 'Not Found' message.",
-        "Test static helper ApiError.internal(): returns instance with statusCode 500 and provided or default 'Internal Server Error' message.",
-        "Test named export: verify require('../src/errors/ApiError').ApiError equals default export."
+        "Import ApiError from '../src/errors/ApiError' and Venue from '../src/entities/Venue'.",
+        "Add describe('registerVenue', ...) suite to backend/tests/VenueService.test.js:",
+        "  - Tests successful registration when currentUser is undefined (defaults ownerId to 'venue-owner-1').",
+        "  - Tests successful registration when currentUser is provided (uses currentUser.userId).",
+        "  - Tests successful registration when data.ownerId is provided without currentUser.",
+        "  - Tests that required fields (name, description, location) throw ApiError with status 400 when missing or empty.",
+        "  - Tests that no 403 Forbidden error is thrown."
       ],
       "acceptance": [
-        "All ApiError unit tests pass when run with Jest."
-      ]
-    },
-    {
-      "path": "backend/tests/errorHandler.test.js",
-      "operation": "CREATE",
-      "instructions": [
-        "Import errorHandler from '../src/middleware/errorHandler' and ApiError from '../src/errors/ApiError'.",
-        "Test error handling for ApiError: mocks res.status().json(), passes ApiError(400, 'Bad input'), expects res.status(400) and res.json({ error: 'Bad input' }).",
-        "Test error handling for 403 ApiError: passes ApiError.forbidden('Forbidden'), expects res.status(403) and res.json({ error: 'Forbidden' }).",
-        "Test error handling for generic Error: passes new Error('Database down'), expects res.status(500) and res.json({ error: 'Database down' }).",
-        "Test error handling when error message is empty: defaults to 'Internal Server Error'.",
-        "Test named export: verify require('../src/middleware/errorHandler').errorHandler equals default export."
-      ],
-      "acceptance": [
-        "All errorHandler unit tests pass when run with Jest."
+        "All tests in backend/tests/VenueService.test.js pass when run with Jest."
       ]
     },
     {
       "path": "backend/tests/VenueController.test.js",
-      "operation": "MODIFY",
+      "operation": "VERIFY",
       "instructions": [
-        "Import ApiError from '../src/errors/ApiError'.",
-        "Add describe('VenueController.create (Task 2)') block alongside existing describe('VenueController.list (Task 5)').",
-        "Test calling create with req.body and req.user: verify venueService.registerVenue is called with req.body and req.user, returns 201, and outputs serialized venue JSON.",
-        "Test calling create with venue entity lacking toJSON: returns 201 with raw venue object.",
-        "Test error propagation when next is provided: when venueService.registerVenue throws an ApiError or Error, verify next(error) is called.",
-        "Test error handling when next is not provided: when venueService.registerVenue throws an ApiError(400, 'Invalid'), verify res.status(400).json({ error: 'Invalid' }); when generic Error thrown, verify res.status(500).json({ error: message })."
+        "Verify existing controller tests pass without modification."
       ],
       "acceptance": [
-        "All tests in VenueController.test.js (both list and create suites) pass when run with Jest."
+        "VenueController.test.js passes without regression."
       ]
     },
     {
       "path": "backend/tests/venues.routes.test.js",
-      "operation": "MODIFY",
+      "operation": "VERIFY",
       "instructions": [
-        "Import venueService from '../src/services/VenueService' and ApiError from '../src/errors/ApiError'.",
-        "Add describe('POST /venues Route Integration (Task 2 & 7)') block.",
-        "Use jest.spyOn(venueService, 'registerVenue') or mock implementation to isolate service logic for route integration tests.",
-        "Test successful venue creation: POST /venues with valid body returns 201 with serialized venue JSON.",
-        "Test validation error response: when registerVenue throws ApiError.badRequest('Name is required'), POST /venues returns 400 with { error: 'Name is required' }.",
-        "Test unauthorized / forbidden response: when registerVenue throws ApiError.forbidden('Forbidden'), POST /venues returns 403 with { error: 'Forbidden' }.",
-        "Test internal server error response: when registerVenue throws generic Error('Internal crash'), POST /venues returns 500 with { error: 'Internal crash' }.",
-        "Test proxy route compatibility: POST /api/venues returns 201 with serialized venue JSON.",
-        "Restore spies in afterEach / beforeEach."
+        "Verify existing route integration tests pass without modification."
       ],
       "acceptance": [
-        "All integration tests in venues.routes.test.js (both GET and POST suites) pass when run with Jest."
+        "venues.routes.test.js passes without regression."
+      ]
+    },
+    {
+      "path": "backend/tests/cors.test.js",
+      "operation": "VERIFY",
+      "instructions": [
+        "Verify existing CORS tests pass without modification."
+      ],
+      "acceptance": [
+        "cors.test.js passes without regression."
       ]
     }
   ],
