@@ -109,4 +109,3 @@ Never plan writes to:
 
 - `AGENTS.md`
 - `.gitignore`
-- `.agents/**`

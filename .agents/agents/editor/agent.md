@@ -43,7 +43,6 @@ Never modify:
 
 - `AGENTS.md`
 - `.gitignore`
-- `.agents/**`
 
 ## Decisions
 
