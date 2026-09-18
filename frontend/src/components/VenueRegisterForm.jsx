@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { useCreateVenue } from "../hooks/useCreateVenue";
+import LocationMapPicker from "./LocationMapPicker.jsx";
 import { VenueConfirmation } from "./VenueConfirmation";
 
 const initialForm = { name: "", description: "", location: "" };
@@ -31,6 +32,11 @@ export function VenueRegisterForm() {
       setForm((prev) => ({ ...prev, [field]: event.target.value }));
       setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
     };
+  }
+
+  function handleLocationChange(address) {
+    setForm((prev) => ({ ...prev, location: address }));
+    setFieldErrors((prev) => ({ ...prev, location: undefined }));
   }
 
   async function handleSubmit(event) {
@@ -79,7 +85,7 @@ export function VenueRegisterForm() {
 
       <form className="venue-register-form" onSubmit={handleSubmit} noValidate>
         <div className="form-fields">
-          <div className="form-field">
+          <div className="form-field form-field--full">
             <label htmlFor="venue-name">Nombre</label>
             <input
               id="venue-name"
@@ -94,14 +100,12 @@ export function VenueRegisterForm() {
             )}
           </div>
 
-          <div className="form-field">
+          <div className="form-field form-field--full">
             <label htmlFor="venue-location">Ubicación</label>
-            <input
+            <LocationMapPicker
               id="venue-location"
-              type="text"
-              placeholder="Ciudad y dirección"
               value={form.location}
-              onChange={handleChange("location")}
+              onChange={handleLocationChange}
             />
             {fieldErrors.location && (
               <p className="form-error" role="alert">
