@@ -131,6 +131,24 @@ function ScrollZoomOnDemand({ onEnabledChange }) {
   return null;
 }
 
+// Invalidate Leaflet map size on mount and after short delays so that
+// when embedded in animated containers or modal dialogs, tiles render completely.
+function InvalidateMapSize() {
+  const map = useMap();
+
+  useEffect(() => {
+    map.invalidateSize();
+    const t1 = setTimeout(() => map.invalidateSize(), 150);
+    const t2 = setTimeout(() => map.invalidateSize(), 400);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [map]);
+
+  return null;
+}
+
 /**
  * @param {{
  *   id?: string,
@@ -155,6 +173,43 @@ function LocationMapPicker({ id, value, onChange }) {
   useEffect(() => {
     return () => clearTimeout(searchDebounceRef.current);
   }, []);
+
+  // When an initial value is provided (e.g. editing an existing venue),
+  // locate it on the map and drop the pin at that location.
+  useEffect(() => {
+    if (!value) return;
+    const trimmed = value.trim();
+    if (!trimmed) return;
+
+    let isCancelled = false;
+    const coordMatch = trimmed.match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/);
+    if (coordMatch) {
+      const lat = parseFloat(coordMatch[1]);
+      const lng = parseFloat(coordMatch[2]);
+      const timer = setTimeout(() => {
+        if (isCancelled) return;
+        setPosition((prev) => prev || [lat, lng]);
+        setFlyTarget((prev) => prev || { center: [lat, lng], zoom: 16 });
+      }, 0);
+      return () => {
+        isCancelled = true;
+        clearTimeout(timer);
+      };
+    }
+
+    searchAddress(trimmed)
+      .then((results) => {
+        if (isCancelled || !results?.length) return;
+        const first = results[0];
+        setPosition((prev) => prev || [first.lat, first.lng]);
+        setFlyTarget((prev) => prev || { center: [first.lat, first.lng], zoom: 16 });
+      })
+      .catch(() => {});
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [value]);
 
   const pickPoint = useCallback(
     (lat, lng, label) => {
@@ -305,6 +360,7 @@ function LocationMapPicker({ id, value, onChange }) {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
+          <InvalidateMapSize />
           <ClickToPick onPick={pickPoint} />
           <FlyToPosition target={flyTarget} />
           <ScrollZoomOnDemand onEnabledChange={setScrollZoomEnabled} />

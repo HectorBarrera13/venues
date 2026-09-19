@@ -1,6 +1,6 @@
 const { VenueService } = require('../src/services/VenueService');
-const Venue = require('../entities/Venue');
-const ApiError = require('../errors/ApiError');
+const Venue = require('../src/entities/Venue');
+const ApiError = require('../src/errors/ApiError');
 
 describe('VenueService', () => {
   describe('listVenues', () => {

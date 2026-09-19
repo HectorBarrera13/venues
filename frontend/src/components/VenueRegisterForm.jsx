@@ -75,7 +75,6 @@ export function VenueRegisterForm() {
         <a className="back-link" href="/">
           &larr; Volver a mis recintos
         </a>
-        <p className="section-label">Nuevo espacio</p>
         <h1 id="register-venue-title">Registra tu recinto</h1>
         <p>
           Comparte la información esencial para que los organizadores conozcan

@@ -359,6 +359,174 @@
   background: #1aa260;
   box-shadow: 0 0 0 4px #e0f6ea;
 }
+.venue-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.venue-card-header .venue-card-icon {
+  margin-bottom: 0;
+}
+.venue-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.venue-card-action {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 8px;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 140ms ease,
+    box-shadow 160ms ease;
+}
+.venue-card-action:hover {
+  transform: translateY(-2px);
+}
+.venue-card-action:active {
+  transform: scale(0.95);
+}
+.venue-card-action svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+}
+.venue-card-action--edit {
+  border: 1px solid #d0e1f7;
+  color: #026cdf;
+  background: #f1f7ff;
+}
+.venue-card-action--edit:hover {
+  border-color: #026cdf;
+  background: #026cdf;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(2, 108, 223, 0.25);
+}
+.venue-card-action--delete {
+  border: 1px solid #fcdada;
+  color: #d32f2f;
+  background: #fff5f5;
+}
+.venue-card-action--delete:hover {
+  border-color: #d32f2f;
+  background: #d32f2f;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(211, 47, 47, 0.25);
+}
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(7, 29, 73, 0.45);
+  backdrop-filter: blur(4px);
+  animation: modalFadeIn 180ms ease;
+}
+.modal-dialog {
+  width: min(680px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  border: 1px solid #dce5f1;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(7, 29, 73, 0.25);
+  padding: 28px;
+  animation: modalScaleUp 180ms ease;
+}
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.modal-header h2 {
+  margin: 0 0 6px;
+  color: #071d49;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+.modal-header p {
+  margin: 0;
+  color: #65738a;
+  font-size: 0.84rem;
+}
+.modal-close-button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  color: #7b879a;
+  background: #f1f4f9;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+.modal-close-button:hover {
+  color: #071d49;
+  background: #e2e8f1;
+}
+.modal-close-button svg {
+  width: 18px;
+  height: 18px;
+}
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid #edf1f6;
+}
+.toast-notification {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  border-radius: 10px;
+  border: 1px solid #c2e7cf;
+  background: #ebfbee;
+  color: #1a6f3b;
+  font-size: 0.88rem;
+  font-weight: 600;
+  animation: modalFadeIn 200ms ease;
+}
+.toast-close {
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: none;
+  color: #1a6f3b;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modalScaleUp {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
 .state-panel {
   min-height: 280px;
   display: grid;

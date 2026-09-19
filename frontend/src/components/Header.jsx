@@ -5,7 +5,7 @@ function getInitials(name = '') {
   return name.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
 }
 
-function Header() {
+function Header({ isRegisterRoute = typeof window !== 'undefined' && window.location.pathname === '/venues/register' }) {
   const { currentUser } = useCurrentUser()
 
   return (
@@ -16,7 +16,7 @@ function Header() {
           <span className="brand-name">Venues</span>
         </a>
         <nav className="main-nav" aria-label="Navegación principal">
-          <a href="#my-venues" aria-current="page">Mis recintos</a>
+          <a href="/" aria-current={!isRegisterRoute ? 'page' : undefined}>Mis recintos</a>
         </nav>
         {currentUser && (
           <div className="user-summary" aria-label={`Sesión de ${currentUser.name}`}>
@@ -29,14 +29,16 @@ function Header() {
             </span>
           </div>
         )}
-        <VenueOwnerOnly>
-          <a className="primary-button primary-button--light" href="/venues/register">
-            <svg className="button-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-            </svg>
-            Registrar recinto
-          </a>
-        </VenueOwnerOnly>
+        {!isRegisterRoute && (
+          <VenueOwnerOnly>
+            <a className="primary-button primary-button--light" href="/venues/register">
+              <svg className="button-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+              </svg>
+              Registrar recinto
+            </a>
+          </VenueOwnerOnly>
+        )}
       </div>
     </header>
   )

@@ -1,14 +1,23 @@
+import { useEffect, useState } from "react";
 import "./App.css";
 import Header from "./components/Header.jsx";
 import MyVenues from "./components/MyVenues.jsx";
 import { VenueRegisterForm } from "./components/VenueRegisterForm.jsx";
 
 function App() {
-  const isRegisterRoute = window.location.pathname === "/venues/register";
+  const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
+
+  useEffect(() => {
+    const handleLocationChange = () => setCurrentPath(window.location.pathname);
+    window.addEventListener("popstate", handleLocationChange);
+    return () => window.removeEventListener("popstate", handleLocationChange);
+  }, []);
+
+  const isRegisterRoute = currentPath === "/venues/register";
 
   return (
     <div className="app-shell">
-      <Header />
+      <Header isRegisterRoute={isRegisterRoute} />
       <main className="page-content">
         {isRegisterRoute ? (
           <VenueRegisterForm />
