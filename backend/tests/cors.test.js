@@ -1,6 +1,6 @@
 const request = require('supertest');
 const app = require('../src/app');
-const { isAllowedOrigin, corsMiddleware } = require('../src/middleware/cors');
+const { isAllowedOrigin } = require('../src/middleware/cors');
 
 describe('CORS Origin Validation (Unit)', () => {
   const originalEnv = process.env.CORS_ALLOWED_ORIGINS;
