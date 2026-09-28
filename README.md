@@ -151,9 +151,3 @@ venues/
    *Examples:*
    - `feat(venues): add owner attribution from auth context (VE-02)`
    - `test(controllers): assert 403 response for unauthorized role (PA-09)`
-
----
-
-## License
-
-This project is licensed under the [ISC License](./package.json).
