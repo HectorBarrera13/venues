@@ -21,8 +21,6 @@ Developed and maintained by **Team SubAgentes**.
 
 - **Authoritative Venue Catalogue**: Central source of truth for physical venues, locations, and seating configurations.
 - **Identity Attribution**: Secure server-side owner identification extracted from authentication context.
-- **Role-Based Access Control**: Granular endpoint protection ensuring mutating operations are restricted to Venue Owners.
-- **Gateway & Cloud-Native Ready**: Prepared for reverse-proxy routing under `/venues` with automatic prefix stripping.
 
 ---
 
@@ -88,41 +86,6 @@ Interactive API documentation (Swagger UI) is available at `/api-docs` when runn
 
 Detailed schema definitions, sample request payloads, and response bodies are documented in [docs/api.md](docs/api.md).
 
-### Primary Endpoints Summary
-
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `GET` | `/health` | Service liveness health check | No |
-| `GET` | `/venues` | List all registered venues | No |
-| `POST` | `/venues` | Register a new physical venue | Yes (`role: venue_owner`) |
-
-> Note: All `/venues` routes are also accessible via `/api/venues` for backward compatibility. During local development, the `x-mock-user` header can be used to simulate authenticated profiles.
-
----
-
-## Project Structure
-
-```text
-venues/
-├── .github/workflows/    # CI/CD pipelines (on_pr.yml, release.yml)
-├── docs/                 # Detailed architecture and API documentation
-├── context/              # Ticket D-Saster domain and product roadmap
-├── scripts/              # Versioning (bump.sh) and changelog tooling
-├── shared/mocks/         # Shared mock user and role test catalogue
-├── src/
-│   ├── auth/             # Identity resolution and authentication adapters
-│   ├── controllers/      # HTTP request handlers (primary adapters)
-│   ├── entities/         # Pure domain entities (Venue)
-│   ├── errors/           # Custom error definitions (ApiError)
-│   ├── middleware/       # Middlewares (CORS, centralized error handling)
-│   ├── repositories/     # Data access abstractions (secondary adapters)
-│   ├── routes/           # Express router configuration
-│   ├── services/         # Application business logic and use cases
-│   ├── app.js            # Express app assembly
-│   └── server.js         # HTTP server entrypoint
-└── tests/                # Unit and integration test suites
-```
-
 ---
 
 ## Documentation Links
@@ -131,22 +94,4 @@ venues/
 - [Detailed API Specification & Contracts](docs/api.md)
 - [Mock User & Role Test Catalogue](shared/mocks/README.md)
 - [Agent & Developer Operational Guidelines](AGENTS.md)
-- [Platform Roadmap & Current MVP](context/product/now.md)
 
----
-
-## Contributing & Git Workflow
-
-1. Branch naming format:
-   ```bash
-   git checkout -b feature/<TICKET-ID>-<short-description>
-   ```
-
-2. Commits must follow **Conventional Commits** ending with the ticket ID in parentheses:
-   ```text
-   <type>(<optional-scope>): <summary in imperative mood> (<TICKET-ID>)
-   ```
-
-   *Examples:*
-   - `feat(venues): add owner attribution from auth context (VE-02)`
-   - `test(controllers): assert 403 response for unauthorized role (PA-09)`

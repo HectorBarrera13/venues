@@ -26,11 +26,3 @@ The `venue-service` is the authoritative component for the **Venues Domain** wit
 
 - **Secondary / Driven Adapters (`src/repositories/`, `src/auth/`)**:
   Persistence implementations (`VenueRepository`) and identity providers (`CurrentUserProvider`). Adapters can be replaced or mocked during unit testing without touching business logic.
-
----
-
-## 3. Platform Integration & Gateway Routing
-
-- **Gateway Routing**: Incoming traffic through `https://gateway.tail9a6ddb.ts.net/venues` uses Traefik with `stripPrefix: true`.
-- **Platform Deployment**: Managed declaratively through Shrine (`subagentes.venue-service.internal`).
-- **Datastore Resource**: Backed by `venue-db`.
