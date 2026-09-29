@@ -13,23 +13,7 @@ The `venue-service` is the authoritative component for the **Venues Domain** wit
 
 ---
 
-## 2. Hexagonal Architecture (Ports and Adapters)
-
-The codebase strictly decouples business domain logic from transport protocols, external dependencies, and persistence mechanisms.
-
-```mermaid
-graph TD
-    Gateway["Reverse Proxy Gateway (/venues)"] --> App["Express Application (src/app.js)"]
-    App --> Middleware["CORS / Error Handling Middleware"]
-    App --> Controller["VenueController (Primary Adapter)"]
-    Controller --> Service["VenueService (Application Layer)"]
-    Service --> Entity["Venue Entity (Pure Domain)"]
-    Service --> Repository["VenueRepository (Secondary Adapter)"]
-    Repository --> Datastore[("Venue Store (venue-db)")]
-    App --> Auth["CurrentUserProvider (Auth Adapter)"]
-```
-
-### Layer Responsibilities
+## 2. Layer Responsibilities
 
 - **Domain Core (`src/entities/`)**:
   Contains the pure `Venue` entity. Holds domain invariants, fields (`id`, `name`, `description`, `location`, `ownerId`, `createdAt`), and serialization helpers without any framework dependencies.

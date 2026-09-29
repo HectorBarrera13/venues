@@ -20,7 +20,6 @@ Developed and maintained by **Team SubAgentes**.
 ## Features
 
 - **Authoritative Venue Catalogue**: Central source of truth for physical venues, locations, and seating configurations.
-- **Hexagonal Architecture**: Business domain logic cleanly decoupled from transport layers, databases, and frameworks.
 - **Identity Attribution**: Secure server-side owner identification extracted from authentication context.
 - **Role-Based Access Control**: Granular endpoint protection ensuring mutating operations are restricted to Venue Owners.
 - **Gateway & Cloud-Native Ready**: Prepared for reverse-proxy routing under `/venues` with automatic prefix stripping.
@@ -128,7 +127,7 @@ venues/
 
 ## Documentation Links
 
-- [Architecture & Hexagonal Design](docs/architecture.md)
+- [Architecture & Design](docs/architecture.md)
 - [Detailed API Specification & Contracts](docs/api.md)
 - [Mock User & Role Test Catalogue](shared/mocks/README.md)
 - [Agent & Developer Operational Guidelines](AGENTS.md)

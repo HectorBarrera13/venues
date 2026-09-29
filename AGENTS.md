@@ -144,17 +144,7 @@ When tasked with implementing features, bug fixes, or refactors, **never jump di
 
 ---
 
-## 5. Architectural Principles & Coding Standards
-
-### 5.1 Hexagonal Architecture (Ports and Adapters)
-`venue-service` enforces clean separation of concerns:
-- **Domain Core**: Pure `Venue`, `Section`, `Row`, `PhysicalSeat` business entities and invariants. **Zero external framework, ORM, or database dependencies.**
-- **Ports**: Inbound ports (`CreateVenueUseCase`, `GetVenueSeatMapUseCase`) and Outbound ports (`VenueRepository`, `VenueEventPublisher`).
-- **Adapters**:
-  - *Primary (Driving)*: REST controllers (`VenueController`), CLI scripts.
-  - *Secondary (Driven)*: Database repository adapter (`PostgresVenueRepository`), JWT token validator adapter.
-
-### 5.2 Security & Authentication Guidelines (MVP 03)
+## 5 Security & Authentication Guidelines (MVP 03)
 - **Token Verification**: Verify bearer JWT tokens emitted by `auth-service` (Team Ninjava).
 - **Role Enforcement**: Ensure `role === "VENUE_OWNER"` for mutating operations.
 - **Identity Attribution**: Extract `ownerId` directly from the token `sub` claim. Never accept client-supplied owner IDs.
