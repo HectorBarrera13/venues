@@ -88,6 +88,31 @@ Detailed schema definitions, sample request payloads, and response bodies are do
 
 ---
 
+## Project Structure
+
+```text
+venues/
+├── .github/workflows/    # CI/CD pipelines (on_pr.yml, release.yml)
+├── docs/                 # Detailed architecture and API documentation
+├── context/              # Ticket D-Saster domain and product roadmap
+├── scripts/              # Versioning (bump.sh) and changelog tooling
+├── shared/mocks/         # Shared mock user and role test catalogue
+├── src/
+│   ├── auth/             # Identity resolution and authentication adapters
+│   ├── controllers/      # HTTP request handlers (primary adapters)
+│   ├── entities/         # Pure domain entities (Venue)
+│   ├── errors/           # Custom error definitions (ApiError)
+│   ├── middleware/       # Middlewares (CORS, centralized error handling)
+│   ├── repositories/     # Data access abstractions (secondary adapters)
+│   ├── routes/           # Express router configuration
+│   ├── services/         # Application business logic and use cases
+│   ├── app.js            # Express app assembly
+│   └── server.js         # HTTP server entrypoint
+└── tests/                # Unit and integration test suites
+```
+
+---
+
 ## Documentation Links
 
 - [Architecture & Design](docs/architecture.md)
