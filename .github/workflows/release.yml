@@ -35,11 +35,11 @@ jobs:
         run: npm ci
 
       - name: Generate OpenAPI spec
-        run: APP_VERSION="${GITHUB_REF_NAME#v}" npm run openapi:generate || echo "No openapi script found"
+        run: APP_VERSION="${GITHUB_REF_NAME#v}" npm run openapi:generate
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64
         with:
           body_path: release-notes.md
-          files: openapi.yml
-          fail_on_unmatched_files: false
+          files: openapi.json
+          fail_on_unmatched_files: true

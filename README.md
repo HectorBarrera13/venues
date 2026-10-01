@@ -77,12 +77,13 @@ By default, the server listens on `http://localhost:3000`.
 | `npm test` | `jest` | Executes the unit test suite |
 | `npm run lint` | `eslint .` | Runs static code analysis |
 | `npm run build` | `node --check src/server.js src/app.js` | Validates JavaScript syntax integrity |
+| `npm run openapi:generate` | `node scripts/generate-openapi.js` | Generates `openapi.json` without starting the server |
 
 ---
 
 ## API Reference
 
-Interactive API documentation (Swagger UI) is available at `/api-docs` when running the application.
+Run `npm run openapi:generate` to write the OpenAPI definition to `openapi.json`.
 
 Detailed schema definitions, sample request payloads, and response bodies are documented in [docs/api.md](docs/api.md).
 
@@ -119,4 +120,3 @@ venues/
 - [Detailed API Specification & Contracts](docs/api.md)
 - [Mock User & Role Test Catalogue](shared/mocks/README.md)
 - [Agent & Developer Operational Guidelines](AGENTS.md)
-
