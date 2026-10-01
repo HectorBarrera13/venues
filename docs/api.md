@@ -1,111 +1,41 @@
 # API Reference & Contracts
 
-This document contains detailed contract specifications, sample payloads, and security requirements for `venue-service`.
-
----
-
-## 1. OpenAPI & Swagger Specification
-
-The authoritative OpenAPI 3.0 specification can be found or exported using:
+The OpenAPI 3.0 definition is generated from `src/openapi/definition.js`:
 
 ```bash
-# Export static OpenAPI definition (when configured)
 npm run openapi:generate
 ```
 
-Interactive Swagger UI documentation is available at `/api-docs` when running in development mode.
+This writes `openapi.json` in the repository root. The command does not start the server or require Swagger UI. Both `/venues` and `/api/venues` expose the same operations.
 
----
+## Current authentication behavior
 
-## 2. Authentication & Headers
+The current routes have no authentication or role-check middleware. `POST /venues` does not read `x-mock-user` or a bearer token. The service uses `ownerId` from the request body when provided, or defaults to `venue-owner-1`. The `CurrentUserProvider` exists but is not connected to the routes.
 
-Mutating endpoints require authentication. During local development and testing, identity resolution is performed via the `x-mock-user` request header.
+## GET /venues
 
-| Header | Description | Example Value |
-|---|---|---|
-| `x-mock-user` | Simulated user identifier for local testing | `venue-owner-1` or `organizer-1` |
-| `Authorization` | Bearer JWT token (production flow) | `Bearer <jwt-token>` |
+Returns the registered venues as a JSON array with HTTP 200. Each venue contains `id`, `name`, `description`, `location`, `ownerId`, and `createdAt`. The route is also available at `GET /api/venues`.
 
-> Note: If `x-mock-user` is not provided in local environments, `CurrentUserProvider` defaults to `venue-owner-1` (role: `venue_owner`).
+## POST /venues
 
----
+Creates a venue and returns it with HTTP 201. The route is also available at `POST /api/venues`.
 
-## 3. Endpoints
+Request body:
 
-### 3.1 Health Check
+```json
+{
+  "name": "Estadio Azteca",
+  "description": "Multi-purpose stadium",
+  "location": "Coyoacan, CDMX"
+}
+```
 
-Validates service liveness.
+`name`, `description`, and `location` are required nonempty strings. The current implementation also accepts an optional `ownerId`.
 
-- **Method**: `GET`
-- **Path**: `/health`
-- **Authentication**: None
-- **Response**: `200 OK`
-  ```json
-  {
-    "status": "ok"
-  }
-  ```
+If a required field is missing or empty, the service responds with HTTP 400 and an error body such as:
 
----
+```json
+{ "error": "Field \"name\" is required" }
+```
 
-### 3.2 List Venues
-
-Retrieves the catalogue of all registered venues.
-
-- **Method**: `GET`
-- **Path**: `/venues` (also accessible via `/api/venues`)
-- **Authentication**: None (public read-access for event scheduling and search indexing)
-- **Response**: `200 OK`
-  ```json
-  [
-    {
-      "id": "1711624800000",
-      "name": "Arena Ciudad de Mexico",
-      "description": "Large indoor arena for major concerts and events",
-      "location": "Avenida de las Granjas 800, Azcapotzalco, CDMX",
-      "ownerId": "venue-owner-1",
-      "createdAt": "2026-03-28T09:00:00.000Z"
-    }
-  ]
-  ```
-
----
-
-### 3.3 Register Venue
-
-Creates a new physical venue record. The `ownerId` is automatically attributed from the authenticated context.
-
-- **Method**: `POST`
-- **Path**: `/venues` (also accessible via `/api/venues`)
-- **Authentication**: Required (`role: "venue_owner"`)
-- **Headers**:
-  - `Content-Type: application/json`
-  - `x-mock-user: venue-owner-1` (or bearer token in production)
-- **Request Body**:
-  ```json
-  {
-    "name": "Estadio Azteca",
-    "description": "Multi-purpose stadium for sports and mass events",
-    "location": "Calzada de Tlalpan 3465, Coyoacan, CDMX"
-  }
-  ```
-- **Response**: `201 Created`
-  ```json
-  {
-    "id": "1711624950123",
-    "name": "Estadio Azteca",
-    "description": "Multi-purpose stadium for sports and mass events",
-    "location": "Calzada de Tlalpan 3465, Coyoacan, CDMX",
-    "ownerId": "venue-owner-1",
-    "createdAt": "2026-03-28T09:02:30.123Z"
-  }
-  ```
-- **Error Responses**:
-  - `400 Bad Request`: Missing mandatory fields (`name`, `description`, `location`).
-    ```json
-    {
-      "error": "Field \"name\" is required"
-    }
-    ```
-  - `401 Unauthorized`: Missing or invalid authentication token.
-  - `403 Forbidden`: Authenticated user does not possess `venue_owner` permissions.
+Unexpected errors use HTTP 500 with the same `{ "error": "..." }` body shape.
