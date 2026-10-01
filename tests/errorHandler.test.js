@@ -1,6 +1,6 @@
-const errorHandler = require('../src/middleware/errorHandler');
+const errorHandler = require('../src/middleware/errorHandler').default;
 const { errorHandler: namedErrorHandler } = require('../src/middleware/errorHandler');
-const ApiError = require('../src/errors/ApiError');
+const ApiError = require('../src/errors/ApiError').default;
 
 describe('errorHandler Middleware (Task 7)', () => {
   let req;

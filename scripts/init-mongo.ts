@@ -1,9 +1,9 @@
-const { MongoClient } = require('mongodb');
+import { MongoClient, MongoServerError } from 'mongodb';
 
 const address = process.env.MONGO_INIT_URL || 'mongodb://127.0.0.1:27017/?directConnection=true';
 const client = new MongoClient(address, { serverSelectionTimeoutMS: 5000 });
 
-async function main() {
+async function main(): Promise<void> {
   try {
     await client.connect();
     const admin = client.db('admin');
@@ -13,7 +13,7 @@ async function main() {
       console.log('MongoDB replica set is already initialized');
       return;
     } catch (error) {
-      if (error.code !== 94) throw error;
+      if (!(error instanceof MongoServerError) || error.code !== 94) throw error;
     }
 
     await admin.command({
@@ -28,7 +28,7 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error('MongoDB initialization failed:', error.message);
+main().catch((error: unknown) => {
+  console.error('MongoDB initialization failed:', error);
   process.exitCode = 1;
 });

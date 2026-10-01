@@ -1,5 +1,5 @@
 const { VenueController } = require('../src/controllers/VenueController');
-const ApiError = require('../src/errors/ApiError');
+const ApiError = require('../src/errors/ApiError').default;
 
 describe('VenueController.list (Task 5)', () => {
   let mockVenueService;
