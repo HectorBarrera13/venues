@@ -8,6 +8,11 @@ describe('VenueRepository (Tasks 6 & 17)', () => {
   });
 
   describe('Task 17: Initialization & reset', () => {
+    it('should keep the internal storage array private and inaccessible directly', () => {
+      expect(repository.venues).toBeUndefined();
+      expect(repository['#venues']).toBeUndefined();
+    });
+
     it('should initialize with an empty array by default', () => {
       expect(repository.findAll()).toEqual([]);
     });

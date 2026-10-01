@@ -6,11 +6,18 @@
  */
 class VenueRepository {
   /**
+   * Internal storage array kept private via JavaScript private field syntax (#field).
+   * Nothing outside this class can access or mutate it directly.
+   * @type {Array<object>}
+   */
+  #venues = [];
+
+  /**
    * Task 17: Set up the internal array.
    * @param {Array} initialVenues - Optional initial seed array.
    */
   constructor(initialVenues = []) {
-    this.venues = [...initialVenues];
+    this.#venues = Array.isArray(initialVenues) ? [...initialVenues] : [];
   }
 
   /**
@@ -18,7 +25,7 @@ class VenueRepository {
    * @param {Array} initialVenues - Optional venues to replace the store with.
    */
   reset(initialVenues = []) {
-    this.venues = [...initialVenues];
+    this.#venues = Array.isArray(initialVenues) ? [...initialVenues] : [];
   }
 
   /**
@@ -32,11 +39,11 @@ class VenueRepository {
       throw new Error('Venue cannot be null or undefined');
     }
 
-    const index = this.venues.findIndex((v) => v.id === venue.id);
+    const index = this.#venues.findIndex((v) => v.id === venue.id);
     if (index !== -1) {
-      this.venues[index] = venue;
+      this.#venues[index] = venue;
     } else {
-      this.venues.push(venue);
+      this.#venues.push(venue);
     }
     return venue;
   }
@@ -46,7 +53,7 @@ class VenueRepository {
    * @returns {Array} Array of all venues
    */
   findAll() {
-    return [...this.venues];
+    return [...this.#venues];
   }
 
   /**
@@ -55,14 +62,20 @@ class VenueRepository {
    * @returns {object|null} The matching venue or null if not found
    */
   findById(id) {
-    const venue = this.venues.find((v) => v.id === id);
+    const venue = this.#venues.find((v) => v.id === id);
     return venue || null;
   }
 }
 
 const venueRepository = new VenueRepository();
 
-module.exports = {
-  VenueRepository,
-  venueRepository,
-};
+VenueRepository.VenueRepository = VenueRepository;
+VenueRepository.venueRepository = venueRepository;
+VenueRepository.VenuesRepository = VenueRepository;
+VenueRepository.venuesRepository = venueRepository;
+
+module.exports = VenueRepository;
+module.exports.VenueRepository = VenueRepository;
+module.exports.venueRepository = venueRepository;
+module.exports.VenuesRepository = VenueRepository;
+module.exports.venuesRepository = venueRepository;
