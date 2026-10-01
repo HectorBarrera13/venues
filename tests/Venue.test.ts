@@ -71,3 +71,5 @@ describe('Venue Entity (Task 1)', () => {
     });
   });
 });
+
+export {};

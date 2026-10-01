@@ -113,7 +113,7 @@ The venue routes now use `VenueRepository.ts`, which stores records through Pris
 | `npm start` | `npm run build && node dist/src/server.js` | Compiles and starts the server |
 | `npm test` | `jest` | Executes the unit test suite |
 | `npm run lint` | `eslint .` | Runs static code analysis |
-| `npm run build` | `tsc -p tsconfig.json` | Compiles and checks TypeScript |
+| `npm run build` | `tsc -p tsconfig.json && tsc -p tsconfig.tests.json` | Compiles the service and checks TypeScript tests |
 | `npm run openapi:generate` | `node scripts/generate-openapi.js` | Generates `openapi.json` without starting the server |
 
 ---

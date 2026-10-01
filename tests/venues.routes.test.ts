@@ -185,3 +185,5 @@ describe('POST /venues Route Integration (Task 2 & 7)', () => {
     expect(response.body.id).toBe('venue-proxy');
   });
 });
+
+export {};

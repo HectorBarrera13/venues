@@ -160,3 +160,5 @@ describe('CORS Integration (Express app)', () => {
     expect(response.body).toHaveProperty('error');
   });
 });
+
+export {};

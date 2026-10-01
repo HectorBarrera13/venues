@@ -77,3 +77,5 @@ describe('VenueRepository', () => {
     await expect(repository.findById('missing')).resolves.toBeNull();
   });
 });
+
+export {};

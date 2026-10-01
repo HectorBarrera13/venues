@@ -4,7 +4,7 @@
   "main": "dist/src/server.js",
   "scripts": {
     "lint": "eslint .",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.tests.json",
     "openapi:generate": "node scripts/generate-openapi.js",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
@@ -31,6 +31,7 @@
     "@babel/preset-env": "^7.29.7",
     "@babel/preset-typescript": "^7.29.7",
     "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
     "@types/node": "^22.20.4",
     "babel-jest": "^30.5.2",
     "eslint": "^10.11.0",

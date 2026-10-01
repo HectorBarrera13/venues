@@ -83,3 +83,5 @@ describe('ApiError (Task 7)', () => {
     });
   });
 });
+
+export {};

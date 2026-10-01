@@ -175,3 +175,5 @@ describe('VenueController.create (Task 2)', () => {
     expect(res.json).toHaveBeenCalledWith({ error: 'Unexpected database failure' });
   });
 });
+
+export {};

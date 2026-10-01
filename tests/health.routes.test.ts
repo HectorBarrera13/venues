@@ -15,3 +15,5 @@ describe('GET /health Route Integration', () => {
     await request(app).get('/health').expect(200);
   });
 });
+
+export {};
