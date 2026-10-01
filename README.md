@@ -66,6 +66,43 @@ Developed and maintained by **Team SubAgentes**.
 
 By default, the server listens on `http://localhost:3000`.
 
+### Local MongoDB and Prisma
+
+This service uses Prisma ORM 6.19.3 for MongoDB. Prisma 7 does not support the MongoDB connector used here. MongoDB must run as a single-node replica set for Prisma relation writes and transactions. The database can run directly on the host; Docker is not required for this setup.
+
+1. Install [MongoDB Community Server](https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-windows/) locally and start `mongod` bound to `127.0.0.1:27017` with replica set name `rs0`. On Windows, run:
+
+   ```powershell
+   .\scripts\start-mongo.ps1
+   ```
+
+   The script accepts an installed `mongod` on `PATH` or the portable MongoDB 8.0.32 binary at `.local/mongodb-win32-x86_64-windows-8.0.32/bin/mongod.exe`. It creates `.local/mongo-data` and keeps MongoDB running in the terminal. In another terminal, initialize the replica set once:
+
+   ```bash
+   npm run mongo:init
+   ```
+
+2. Copy `.env.example` to `.env` and `.env.test.example` to `.env.test`. These files use separate `venue_db` and `venue_db_test` databases on the local instance. They are ignored by Git. Change the URLs if your local MongoDB uses another address or credentials.
+
+3. Generate the Prisma client and create the collections and indexes:
+
+   ```bash
+   npm run db:generate
+   npm run db:push
+   npm run db:push:test
+   ```
+
+4. Check each connection:
+
+   ```bash
+   npm run db:check
+   npm run db:check:test
+   ```
+
+The schema in `prisma/schema.prisma` defines `VenueOwner`, `Venue`, `Zone`, and `Seat`, with references matching the venue-store diagram. IDs are strings to match the existing venue API; `Venue.description` is stored as `desc` in MongoDB. `VenueOwner` holds the owner ID and name for the venue store; authentication remains owned by the Auth service. Prisma relations on MongoDB are managed by Prisma, so write operations should go through the client.
+
+The current venue routes still use the in-memory `VenueRepository`. The Prisma client is available from `src/database/prisma.js` for the subsequent persistence integration.
+
 ---
 
 ## Available Scripts

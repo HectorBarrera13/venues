@@ -6,6 +6,12 @@
     "lint": "eslint .",
     "build": "node --check src/server.js src/app.js",
     "openapi:generate": "node scripts/generate-openapi.js",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:push:test": "node --env-file=.env.test node_modules/prisma/build/index.js db push",
+    "db:check": "node scripts/check-database.js",
+    "db:check:test": "node --env-file=.env.test scripts/check-database.js",
+    "mongo:init": "node scripts/init-mongo.js",
     "test": "jest",
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
@@ -16,6 +22,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@prisma/client": "6.19.3",
+    "dotenv": "16.6.1",
     "express": "^5.2.1"
   },
   "devDependencies": {
@@ -23,7 +31,9 @@
     "globals": "^17.12.0",
     "husky": "^9.1.7",
     "jest": "^30.5.1",
+    "mongodb": "^6.21.0",
     "nodemon": "^3.1.14",
+    "prisma": "6.19.3",
     "supertest": "^7.2.2"
   }
 }
