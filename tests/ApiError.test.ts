@@ -1,4 +1,4 @@
-const ApiError = require('../src/errors/ApiError');
+const ApiError = require('../src/errors/ApiError').default;
 const { ApiError: NamedApiError } = require('../src/errors/ApiError');
 
 describe('ApiError (Task 7)', () => {
@@ -83,3 +83,5 @@ describe('ApiError (Task 7)', () => {
     });
   });
 });
+
+export {};

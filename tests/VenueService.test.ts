@@ -1,20 +1,20 @@
 const { VenueService } = require('../src/services/VenueService');
-const Venue = require('../src/entities/Venue');
-const ApiError = require('../src/errors/ApiError');
+const Venue = require('../src/entities/Venue').default;
+const ApiError = require('../src/errors/ApiError').default;
 
 describe('VenueService', () => {
   describe('listVenues', () => {
-    it('should call venueRepository.findAll when listVenues is called', () => {
+    it('should call venueRepository.findAll when listVenues is called', async () => {
       const mockVenues = [
         { id: 'v-1', name: 'Venue 1' },
         { id: 'v-2', name: 'Venue 2' },
       ];
       const mockRepository = {
-        findAll: jest.fn().mockReturnValue(mockVenues),
+        findAll: jest.fn().mockResolvedValue(mockVenues),
       };
 
       const service = new VenueService(mockRepository);
-      const result = service.listVenues();
+      const result = await service.listVenues();
 
       expect(mockRepository.findAll).toHaveBeenCalledTimes(1);
       expect(result).toBe(mockVenues);
@@ -28,19 +28,19 @@ describe('VenueService', () => {
     beforeEach(() => {
       mockRepository = {
         findAll: jest.fn(),
-        save: jest.fn((venue) => venue),
+        save: jest.fn(async (venue) => venue),
       };
       service = new VenueService(mockRepository);
     });
 
-    it('should register venue without currentUser and default ownerId to venue-owner-1', () => {
+    it('should register venue without currentUser and default ownerId to venue-owner-1', async () => {
       const payload = {
         name: 'Teatro Metropolitan',
         description: 'Historic theatre',
         location: 'Centro Historico',
       };
 
-      const result = service.registerVenue(payload);
+      const result = await service.registerVenue(payload);
 
       expect(mockRepository.save).toHaveBeenCalledTimes(1);
       const savedVenue = mockRepository.save.mock.calls[0][0];
@@ -52,7 +52,7 @@ describe('VenueService', () => {
       expect(result).toBe(savedVenue);
     });
 
-    it('should register venue using currentUser.userId when provided', () => {
+    it('should register venue using currentUser.userId when provided', async () => {
       const payload = {
         name: 'Foro Indie',
         description: 'Indie venue',
@@ -60,12 +60,12 @@ describe('VenueService', () => {
       };
       const currentUser = { userId: 'user-789', role: 'venue_owner' };
 
-      const result = service.registerVenue(payload, currentUser);
+      const result = await service.registerVenue(payload, currentUser);
 
       expect(result.ownerId).toBe('user-789');
     });
 
-    it('should register venue using currentUser.id when userId is absent', () => {
+    it('should register venue using currentUser.id when userId is absent', async () => {
       const payload = {
         name: 'Auditorio Sala B',
         description: 'Acoustic hall',
@@ -73,12 +73,12 @@ describe('VenueService', () => {
       };
       const currentUser = { id: 'legacy-id-45' };
 
-      const result = service.registerVenue(payload, currentUser);
+      const result = await service.registerVenue(payload, currentUser);
 
       expect(result.ownerId).toBe('legacy-id-45');
     });
 
-    it('should register venue using data.ownerId when no currentUser is provided', () => {
+    it('should register venue using data.ownerId when no currentUser is provided', async () => {
       const payload = {
         name: 'Open Air Stadium',
         description: 'Large arena',
@@ -86,12 +86,12 @@ describe('VenueService', () => {
         ownerId: 'explicit-owner-99',
       };
 
-      const result = service.registerVenue(payload);
+      const result = await service.registerVenue(payload);
 
       expect(result.ownerId).toBe('explicit-owner-99');
     });
 
-    it('should not throw 403 when user is not a venue_owner (allows unauthenticated / organizer)', () => {
+    it('should not throw 403 when user is not a venue_owner (allows unauthenticated / organizer)', async () => {
       const payload = {
         name: 'Community Center',
         description: 'Multi-purpose room',
@@ -99,39 +99,41 @@ describe('VenueService', () => {
       };
       const nonOwnerUser = { userId: 'user-organizer', role: 'organizer' };
 
-      expect(() => service.registerVenue(payload, nonOwnerUser)).not.toThrow();
+      await expect(service.registerVenue(payload, nonOwnerUser)).resolves.toBeInstanceOf(Venue);
     });
 
-    it('should throw ApiError(400) if name is missing or empty', () => {
+    it('should throw ApiError(400) if name is missing or empty', async () => {
       const payload = {
         name: '   ',
         description: 'Desc',
         location: 'Loc',
       };
 
-      expect(() => service.registerVenue(payload)).toThrow(ApiError);
-      expect(() => service.registerVenue(payload)).toThrow('Field "name" is required');
+      await expect(service.registerVenue(payload)).rejects.toThrow(ApiError);
+      await expect(service.registerVenue(payload)).rejects.toThrow('Field "name" is required');
     });
 
-    it('should throw ApiError(400) if description is missing or empty', () => {
+    it('should throw ApiError(400) if description is missing or empty', async () => {
       const payload = {
         name: 'Valid Name',
         description: '',
         location: 'Loc',
       };
 
-      expect(() => service.registerVenue(payload)).toThrow(ApiError);
-      expect(() => service.registerVenue(payload)).toThrow('Field "description" is required');
+      await expect(service.registerVenue(payload)).rejects.toThrow(ApiError);
+      await expect(service.registerVenue(payload)).rejects.toThrow('Field "description" is required');
     });
 
-    it('should throw ApiError(400) if location is missing or empty', () => {
+    it('should throw ApiError(400) if location is missing or empty', async () => {
       const payload = {
         name: 'Valid Name',
         description: 'Valid Desc',
       };
 
-      expect(() => service.registerVenue(payload)).toThrow(ApiError);
-      expect(() => service.registerVenue(payload)).toThrow('Field "location" is required');
+      await expect(service.registerVenue(payload)).rejects.toThrow(ApiError);
+      await expect(service.registerVenue(payload)).rejects.toThrow('Field "location" is required');
     });
   });
 });
+
+export {};

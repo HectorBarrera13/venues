@@ -1,6 +1,6 @@
-const { prisma } = require('../src/database/prisma');
+import { prisma } from '../src/database/prisma';
 
-async function main() {
+async function main(): Promise<void> {
   try {
     await prisma.$connect();
     await prisma.$runCommandRaw({ ping: 1 });
@@ -10,7 +10,7 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error('MongoDB connection failed:', error.message);
+main().catch((error: unknown) => {
+  console.error('MongoDB connection failed:', error);
   process.exitCode = 1;
 });

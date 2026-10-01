@@ -55,11 +55,11 @@ Developed and maintained by **Team SubAgentes**.
 
 ### Running Locally
 
-- **Development mode** (with hot-reload via Nodemon):
+- **Development mode** (with TypeScript reload):
   ```bash
   npm run dev
   ```
-- **Production mode**:
+- **Compiled mode**:
   ```bash
   npm start
   ```
@@ -101,7 +101,7 @@ This service uses Prisma ORM 6.19.3 for MongoDB. Prisma 7 does not support the M
 
 The schema in `prisma/schema.prisma` defines `VenueOwner`, `Venue`, `Zone`, and `Seat`, with references matching the venue-store diagram. IDs are strings to match the existing venue API; `Venue.description` is stored as `desc` in MongoDB. `VenueOwner` holds the owner ID and name for the venue store; authentication remains owned by the Auth service. Prisma relations on MongoDB are managed by Prisma, so write operations should go through the client.
 
-The current venue routes still use the in-memory `VenueRepository`. The Prisma client is available from `src/database/prisma.js` for the subsequent persistence integration.
+The venue routes now use `VenueRepository.ts`, which stores records through Prisma. `POST /venues` creates a venue and its owner record when needed; `GET /venues` reads persisted venues. Both `/api/venues` aliases use the same repository. Data remains in MongoDB after the API process restarts.
 
 ---
 
@@ -109,11 +109,11 @@ The current venue routes still use the in-memory `VenueRepository`. The Prisma c
 
 | Script | Command | Description |
 |---|---|---|
-| `npm run dev` | `nodemon src/server.js` | Starts server with live reloading |
-| `npm start` | `node src/server.js` | Starts server in production mode |
+| `npm run dev` | `tsx watch src/server.ts` | Starts TypeScript server with live reloading |
+| `npm start` | `npm run build && node dist/src/server.js` | Compiles and starts the server |
 | `npm test` | `jest` | Executes the unit test suite |
 | `npm run lint` | `eslint .` | Runs static code analysis |
-| `npm run build` | `node --check src/server.js src/app.js` | Validates JavaScript syntax integrity |
+| `npm run build` | `tsc -p tsconfig.json && tsc -p tsconfig.tests.json` | Compiles the service and checks TypeScript tests |
 | `npm run openapi:generate` | `node scripts/generate-openapi.js` | Generates `openapi.json` without starting the server |
 
 ---

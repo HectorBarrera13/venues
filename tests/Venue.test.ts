@@ -1,4 +1,4 @@
-const Venue = require('../src/entities/Venue');
+const Venue = require('../src/entities/Venue').default;
 
 describe('Venue Entity (Task 1)', () => {
   it('should initialize with provided properties and generate id and createdAt', () => {
@@ -71,3 +71,5 @@ describe('Venue Entity (Task 1)', () => {
     });
   });
 });
+
+export {};

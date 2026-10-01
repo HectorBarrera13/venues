@@ -1,20 +1,20 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "main": "src/server.js",
+  "main": "dist/src/server.js",
   "scripts": {
     "lint": "eslint .",
-    "build": "node --check src/server.js src/app.js",
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.tests.json",
     "openapi:generate": "node scripts/generate-openapi.js",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:push:test": "node --env-file=.env.test node_modules/prisma/build/index.js db push",
-    "db:check": "node scripts/check-database.js",
-    "db:check:test": "node --env-file=.env.test scripts/check-database.js",
-    "mongo:init": "node scripts/init-mongo.js",
+    "db:check": "tsx scripts/check-database.ts",
+    "db:check:test": "node --env-file=.env.test --import tsx scripts/check-database.ts",
+    "mongo:init": "tsx scripts/init-mongo.ts",
     "test": "jest",
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
+    "start": "npm run build && node dist/src/server.js",
+    "dev": "tsx watch src/server.ts",
     "prepare": "husky"
   },
   "keywords": [],
@@ -27,6 +27,13 @@
     "express": "^5.2.1"
   },
   "devDependencies": {
+    "@babel/core": "^7.29.7",
+    "@babel/preset-env": "^7.29.7",
+    "@babel/preset-typescript": "^7.29.7",
+    "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.20.4",
+    "babel-jest": "^30.5.2",
     "eslint": "^10.11.0",
     "globals": "^17.12.0",
     "husky": "^9.1.7",
@@ -34,6 +41,9 @@
     "mongodb": "^6.21.0",
     "nodemon": "^3.1.14",
     "prisma": "6.19.3",
-    "supertest": "^7.2.2"
+    "supertest": "^7.2.2",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.0"
   }
 }

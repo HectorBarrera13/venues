@@ -1,6 +1,6 @@
-const errorHandler = require('../src/middleware/errorHandler');
+const errorHandler = require('../src/middleware/errorHandler').default;
 const { errorHandler: namedErrorHandler } = require('../src/middleware/errorHandler');
-const ApiError = require('../src/errors/ApiError');
+const ApiError = require('../src/errors/ApiError').default;
 
 describe('errorHandler Middleware (Task 7)', () => {
   let req;
@@ -40,8 +40,7 @@ describe('errorHandler Middleware (Task 7)', () => {
   });
 
   it('should handle error with custom status property', () => {
-    const error = new Error('Not Allowed');
-    error.status = 405;
+    const error = Object.assign(new Error('Not Allowed'), { status: 405 });
 
     errorHandler(error, req, res, next);
 
@@ -67,3 +66,5 @@ describe('errorHandler Middleware (Task 7)', () => {
     expect(res.json).toHaveBeenCalledWith({ error: 'Internal Server Error' });
   });
 });
+
+export {};

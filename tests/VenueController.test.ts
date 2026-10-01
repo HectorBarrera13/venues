@@ -1,5 +1,5 @@
 const { VenueController } = require('../src/controllers/VenueController');
-const ApiError = require('../src/errors/ApiError');
+const ApiError = require('../src/errors/ApiError').default;
 
 describe('VenueController.list (Task 5)', () => {
   let mockVenueService;
@@ -175,3 +175,5 @@ describe('VenueController.create (Task 2)', () => {
     expect(res.json).toHaveBeenCalledWith({ error: 'Unexpected database failure' });
   });
 });
+
+export {};

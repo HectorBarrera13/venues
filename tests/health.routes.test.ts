@@ -1,5 +1,5 @@
 const request = require('supertest');
-const app = require('../src/app');
+const app = require('../src/app').default;
 
 describe('GET /health Route Integration', () => {
   it('should return 200 with { status: "ok" }', async () => {
@@ -15,3 +15,5 @@ describe('GET /health Route Integration', () => {
     await request(app).get('/health').expect(200);
   });
 });
+
+export {};
