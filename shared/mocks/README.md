@@ -16,8 +16,9 @@ monorepo.
 ```
 shared/
 └── mocks/
-    ├── index.js        ← Barrel export (punto de entrada recomendado)
-    ├── mockUsers.js    ← Datos y helpers de usuarios mock
+    ├── index.ts        ← Barrel export (punto de entrada recomendado)
+    ├── mockUsers.ts    ← Datos y helpers de usuarios mock
+    ├── verify.ts       ← Verificación manual de los datos
     └── README.md       ← Este archivo
 ```
 
@@ -32,7 +33,7 @@ shared/
 
 ## 🔑 Roles definidos
 
-```js
+```ts
 import { Roles } from '../../shared/mocks';
 
 Roles.VENUE_OWNER  // → 'venue_owner'
@@ -44,9 +45,9 @@ Roles.ADMIN        // → 'admin'
 
 ### Desde el Backend (Node.js / Express)
 
-```js
+```ts
 // Ruta relativa desde backend/src/
-import { MOCK_USERS, Roles, DEFAULT_USERS, getUserById } from '../../shared/mocks/index.js';
+import { MOCK_USERS, Roles, DEFAULT_USERS, getUserById } from '../../shared/mocks/index';
 
 // Uso en CurrentUserProvider
 const currentUser = DEFAULT_USERS.venueOwner;
@@ -54,9 +55,9 @@ const currentUser = DEFAULT_USERS.venueOwner;
 
 ### Desde el Frontend (React / Vite)
 
-```js
+```ts
 // Ruta relativa desde frontend/src/
-import { MOCK_USERS, Roles, DEFAULT_USERS, getUsersByRole } from '../../shared/mocks/index.js';
+import { MOCK_USERS, Roles, DEFAULT_USERS, getUsersByRole } from '../../shared/mocks/index';
 
 // Uso en CurrentUserService
 const organizers = getUsersByRole(Roles.ORGANIZER);
@@ -76,7 +77,6 @@ const organizers = getUsersByRole(Roles.ORGANIZER);
 ## ⚠️ Notas importantes
 
 - Los datos están **congelados** (`Object.freeze`) para prevenir mutaciones accidentales.
-- Este módulo usa **ES Module syntax** (`export`). El backend debe tener
-  `"type": "module"` en su `package.json` o usar la extensión `.mjs`.
-- Para agregar nuevos usuarios de prueba, edita **únicamente** `mockUsers.js`.
+- El código fuente usa TypeScript y se compila a CommonJS para el backend.
+- Para agregar nuevos usuarios de prueba, edita **únicamente** `mockUsers.ts`.
 - No dupliques estos datos en el frontend o backend; siempre importa desde aquí.

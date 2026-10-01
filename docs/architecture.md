@@ -1,5 +1,7 @@
 # Architecture & Domain Design
 
+The service source, scripts, shared mocks, and test suites use TypeScript. The build emits CommonJS for Node.js.
+
 This document details the architectural principles, container boundaries, and domain model of the `venue-service`.
 
 ---
