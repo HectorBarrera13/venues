@@ -68,8 +68,6 @@ describe('VenueController.list (Task 5)', () => {
   });
 });
 
-export {};
-
 describe('VenueController.create (Task 2)', () => {
   let mockVenueService;
   let controller;
@@ -177,3 +175,5 @@ describe('VenueController.create (Task 2)', () => {
     expect(res.json).toHaveBeenCalledWith({ error: 'Unexpected database failure' });
   });
 });
+
+export {};

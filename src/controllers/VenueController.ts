@@ -29,10 +29,9 @@ export class VenueController {
       return res.status(201).json(body);
     } catch (error) {
       if (next) return next(error);
-      const candidate = typeof error === 'object' && error !== null
-        ? error as { statusCode?: number; status?: number }
-        : {};
-      const status = candidate.statusCode || candidate.status || 500;
+      const status = typeof error === 'object' && error !== null && 'statusCode' in error
+        ? Number(error.statusCode)
+        : 500;
       return res.status(status).json({ error: errorMessage(error) });
     }
   };

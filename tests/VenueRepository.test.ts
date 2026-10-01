@@ -1,101 +1,80 @@
 const { VenueRepository } = require('../src/repositories/VenueRepository');
+const Venue = require('../src/entities/Venue').default;
 
-describe('VenueRepository (Tasks 6 & 17)', () => {
+const record = {
+  id: 'venue-1',
+  name: 'Auditorium',
+  description: 'Concert hall',
+  location: 'Centro',
+  ownerId: 'owner-1',
+  createdAt: new Date('2026-10-01T12:00:00.000Z'),
+};
+
+describe('VenueRepository', () => {
+  let client;
   let repository;
 
   beforeEach(() => {
-    repository = new VenueRepository();
+    client = {
+      venueOwner: { upsert: jest.fn().mockResolvedValue({ id: 'owner-1', name: 'owner-1' }) },
+      venue: {
+        upsert: jest.fn().mockResolvedValue(record),
+        findMany: jest.fn().mockResolvedValue([record]),
+        findUnique: jest.fn().mockResolvedValue(record),
+      },
+    };
+    repository = new VenueRepository(client);
   });
 
-  describe('Task 17: Initialization & reset', () => {
-    it('should initialize with an empty array by default', () => {
-      expect(repository.findAll()).toEqual([]);
+  it('saves a venue and creates its owner record when needed', async () => {
+    const venue = new Venue({ ...record, createdAt: record.createdAt });
+    const saved = await repository.save(venue, 'Alex Morgan');
+
+    expect(client.venueOwner.upsert).toHaveBeenCalledWith({
+      where: { id: 'owner-1' },
+      create: { id: 'owner-1', name: 'Alex Morgan' },
+      update: { name: 'Alex Morgan' },
     });
-
-    it('should initialize with provided seed venues if passed to constructor', () => {
-      const initial = [{ id: '1', name: 'Venue 1' }];
-      const customRepo = new VenueRepository(initial);
-      expect(customRepo.findAll()).toEqual(initial);
-    });
-
-    it('should reset the internal array to empty by default', () => {
-      repository.save({ id: 'v-1', name: 'Venue 1' });
-      expect(repository.findAll().length).toBe(1);
-
-      repository.reset();
-      expect(repository.findAll()).toEqual([]);
-    });
-
-    it('should reset the internal array with new seed data when provided', () => {
-      repository.save({ id: 'v-1', name: 'Venue 1' });
-
-      const newSeed = [{ id: 'v-2', name: 'Venue 2' }];
-      repository.reset(newSeed);
-
-      expect(repository.findAll()).toEqual(newSeed);
-    });
+    expect(client.venue.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'venue-1' },
+      create: expect.objectContaining({
+        name: 'Auditorium',
+        owner: { connect: { id: 'owner-1' } },
+      }),
+    }));
+    expect(saved).toBeInstanceOf(Venue);
+    expect(saved.toJSON()).toEqual({ ...record, createdAt: record.createdAt.toISOString() });
   });
 
-  describe('Task 6: save', () => {
-    it('should add a new venue and return it', () => {
-      const venue = { id: 'v-10', name: 'Auditorium' };
-      const saved = repository.save(venue);
+  it('updates an existing venue by ID', async () => {
+    await repository.save(new Venue({ ...record, name: 'Auditorium Deluxe' }));
 
-      expect(saved).toBe(venue);
-      expect(repository.findAll()).toHaveLength(1);
-      expect(repository.findById('v-10')).toBe(venue);
-    });
-
-    it('should update an existing venue if the id already exists', () => {
-      const venue = { id: 'v-10', name: 'Auditorium' };
-      repository.save(venue);
-
-      const updatedVenue = { id: 'v-10', name: 'Auditorium Deluxe' };
-      repository.save(updatedVenue);
-
-      expect(repository.findAll()).toHaveLength(1);
-      expect(repository.findById('v-10').name).toBe('Auditorium Deluxe');
-    });
-
-    it('should throw an error if saving null or undefined', () => {
-      expect(() => repository.save(null)).toThrow('Venue cannot be null or undefined');
-      expect(() => repository.save(undefined)).toThrow('Venue cannot be null or undefined');
-    });
+    expect(client.venue.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'venue-1' },
+      update: expect.objectContaining({ name: 'Auditorium Deluxe' }),
+    }));
   });
 
-  describe('Task 6: findAll', () => {
-    it('should return all venues', () => {
-      const v1 = { id: '1', name: 'Venue A' };
-      const v2 = { id: '2', name: 'Venue B' };
-      repository.save(v1);
-      repository.save(v2);
+  it('lists venues from MongoDB as domain entities', async () => {
+    const venues = await repository.findAll();
 
-      const all = repository.findAll();
-      expect(all).toEqual([v1, v2]);
-    });
-
-    it('should return a shallow copy to prevent external array mutations', () => {
-      const v1 = { id: '1', name: 'Venue A' };
-      repository.save(v1);
-
-      const all = repository.findAll();
-      all.push({ id: '2', name: 'Venue B' });
-
-      expect(repository.findAll()).toHaveLength(1);
-    });
+    expect(client.venue.findMany).toHaveBeenCalledTimes(1);
+    expect(venues).toHaveLength(1);
+    expect(venues[0]).toBeInstanceOf(Venue);
+    expect(venues[0].createdAt).toBe('2026-10-01T12:00:00.000Z');
   });
 
-  describe('Task 6: findById', () => {
-    it('should return the venue with matching id', () => {
-      const venue = { id: 'v-find', name: 'Match' };
-      repository.save(venue);
+  it('finds a venue by ID', async () => {
+    const venue = await repository.findById('venue-1');
 
-      expect(repository.findById('v-find')).toBe(venue);
-    });
+    expect(client.venue.findUnique).toHaveBeenCalledWith({ where: { id: 'venue-1' } });
+    expect(venue).toBeInstanceOf(Venue);
+  });
 
-    it('should return null when no venue matches the id', () => {
-      expect(repository.findById('non-existent')).toBeNull();
-    });
+  it('returns null when no venue has the requested ID', async () => {
+    client.venue.findUnique.mockResolvedValue(null);
+
+    await expect(repository.findById('missing')).resolves.toBeNull();
   });
 });
 

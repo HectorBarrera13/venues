@@ -1,6 +1,7 @@
 const request = require('supertest');
 const app = require('../src/app').default;
 const { isAllowedOrigin } = require('../src/middleware/cors');
+const { venueRepository } = require('../src/repositories/VenueRepository');
 
 describe('CORS Origin Validation (Unit)', () => {
   const originalEnv = process.env.CORS_ALLOWED_ORIGINS;
@@ -61,6 +62,14 @@ describe('CORS Origin Validation (Unit)', () => {
 });
 
 describe('CORS Integration (Express app)', () => {
+  beforeEach(() => {
+    jest.spyOn(venueRepository, 'findAll').mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('should pass through normal requests when no Origin header is sent', async () => {
     const response = await request(app).get('/venues');
     expect(response.status).toBe(200);

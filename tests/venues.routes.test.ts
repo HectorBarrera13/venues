@@ -6,8 +6,14 @@ const Venue = require('../src/entities/Venue').default;
 const ApiError = require('../src/errors/ApiError').default;
 
 describe('GET /venues Route Integration (Task 5)', () => {
+  let findAllSpy;
+
   beforeEach(() => {
-    venueRepository.reset();
+    findAllSpy = jest.spyOn(venueRepository, 'findAll').mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    findAllSpy.mockRestore();
   });
 
   it('should return 200 with an empty array when no venues exist', async () => {
@@ -37,8 +43,7 @@ describe('GET /venues Route Integration (Task 5)', () => {
       createdAt: '2026-03-02T12:00:00.000Z',
     });
 
-    venueRepository.save(v1);
-    venueRepository.save(v2);
+    findAllSpy.mockResolvedValue([v1, v2]);
 
     const response = await request(app)
       .get('/venues')
@@ -74,8 +79,6 @@ describe('GET /venues Route Integration (Task 5)', () => {
     expect(response.body).toEqual([]);
   });
 });
-
-export {};
 
 describe('POST /venues Route Integration (Task 2 & 7)', () => {
   let registerVenueSpy;
@@ -182,3 +185,5 @@ describe('POST /venues Route Integration (Task 2 & 7)', () => {
     expect(response.body.id).toBe('venue-proxy');
   });
 });
+
+export {};

@@ -7,11 +7,11 @@
     "outDir": "dist",
     "strict": true,
     "esModuleInterop": true,
-    "allowJs": false,
-    "resolveJsonModule": true,
+    "allowJs": true,
+    "checkJs": false,
     "skipLibCheck": true,
     "noEmitOnError": true
   },
-  "include": ["src/**/*.ts", "scripts/**/*.ts", "shared/**/*.ts", "eslint.config.ts"],
+  "include": ["src/**/*", "scripts/**/*.ts"],
   "exclude": ["node_modules", "dist", "tests"]
 }

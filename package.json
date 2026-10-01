@@ -5,14 +5,14 @@
   "scripts": {
     "lint": "eslint .",
     "build": "tsc -p tsconfig.json && tsc -p tsconfig.tests.json",
-    "openapi:generate": "tsx scripts/generate-openapi.ts",
+    "openapi:generate": "node scripts/generate-openapi.js",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:push:test": "node --env-file=.env.test node_modules/prisma/build/index.js db push",
     "db:check": "tsx scripts/check-database.ts",
     "db:check:test": "node --env-file=.env.test --import tsx scripts/check-database.ts",
     "mongo:init": "tsx scripts/init-mongo.ts",
-    "test": "jest --config jest.config.json",
+    "test": "jest",
     "start": "npm run build && node dist/src/server.js",
     "dev": "tsx watch src/server.ts",
     "prepare": "husky"

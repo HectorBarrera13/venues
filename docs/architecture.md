@@ -27,4 +27,4 @@ The `venue-service` is the authoritative component for the **Venues Domain** wit
   HTTP REST controllers and routing handlers. Maps inbound HTTP requests to application services and formats outbound JSON responses and status codes.
 
 - **Secondary / Driven Adapters (`src/repositories/`, `src/auth/`)**:
-  Persistence implementations (`VenueRepository`) and identity providers (`CurrentUserProvider`). Adapters can be replaced or mocked during unit testing without touching business logic.
+  `VenueRepository` persists venues through Prisma and MongoDB. The service depends on its `VenueStore` contract, so the adapter can be replaced without changing domain rules.
