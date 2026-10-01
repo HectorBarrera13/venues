@@ -51,6 +51,15 @@ module.exports = {
   paths: {
     '/venues': venueOperations(''),
     '/api/venues': venueOperations('Api'),
+    '/health': {
+      get: {
+        operationId: 'getHealth',
+        summary: 'Health check',
+        responses: {
+          200: jsonResponse('Service is healthy', { $ref: '#/components/schemas/HealthStatus' }),
+        },
+      },
+    },
   },
   components: {
     schemas: {
@@ -81,6 +90,13 @@ module.exports = {
         required: ['error'],
         properties: {
           error: { type: 'string' },
+        },
+      },
+      HealthStatus: {
+        type: 'object',
+        required: ['status'],
+        properties: {
+          status: { type: 'string', example: 'ok' },
         },
       },
     },
