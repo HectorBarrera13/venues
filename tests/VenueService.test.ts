@@ -11,6 +11,8 @@ describe('VenueService', () => {
       ];
       const mockRepository = {
         findAll: jest.fn().mockResolvedValue(mockVenues),
+        save: jest.fn(),
+        findById: jest.fn(),
       };
 
       const service = new VenueService(mockRepository);
