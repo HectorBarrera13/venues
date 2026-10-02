@@ -87,7 +87,7 @@ describe('VenueController.create (Task 2)', () => {
         description: 'Indoor arena',
         location: 'Iztacalco',
       },
-      user: { id: 'user-42' },
+      auth: { userId: 'user-42', roles: ['VENUE_OWNER'] },
     };
     res = {
       status: jest.fn().mockReturnThis(),
@@ -96,7 +96,7 @@ describe('VenueController.create (Task 2)', () => {
     next = jest.fn();
   });
 
-  it('should call venueService.registerVenue with req.body and req.user and return 201 with serialized JSON', async () => {
+  it('should call venueService.registerVenue with req.body and req.auth and return 201 with serialized JSON', async () => {
     const mockCreatedVenue = {
       id: 'venue-10',
       name: 'Palacio de los Deportes',
@@ -117,7 +117,7 @@ describe('VenueController.create (Task 2)', () => {
 
     await controller.create(req, res, next);
 
-    expect(mockVenueService.registerVenue).toHaveBeenCalledWith(req.body, req.user);
+    expect(mockVenueService.registerVenue).toHaveBeenCalledWith(req.body, req.auth);
     expect(mockCreatedVenue.toJSON).toHaveBeenCalledTimes(1);
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({

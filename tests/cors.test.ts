@@ -153,9 +153,9 @@ describe('CORS Integration (Express app)', () => {
     const response = await request(app)
       .post('/venues')
       .set('Origin', 'http://localhost:5173')
-      .send({}); // Invalid body missing name
+      .send({}); // Unauthenticated request returns 401 error
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(401);
     expect(response.headers['access-control-allow-origin']).toBe('http://localhost:5173');
     expect(response.body).toHaveProperty('error');
   });

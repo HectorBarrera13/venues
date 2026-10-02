@@ -1,7 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import { venueService, type VenueService, type VenueUser } from '../services/VenueService';
-
-type VenueRequest = Request & { user?: VenueUser };
+import { venueService, type VenueService } from '../services/VenueService';
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Internal Server Error';
@@ -22,9 +20,9 @@ export class VenueController {
     }
   };
 
-  create = async (req: VenueRequest, res: Response, next?: NextFunction): Promise<Response | void> => {
+  create = async (req: Request, res: Response, next?: NextFunction): Promise<Response | void> => {
     try {
-      const venue = await this.service.registerVenue(req.body, req.user);
+      const venue = await this.service.registerVenue(req.body, req.auth);
       const body = typeof venue?.toJSON === 'function' ? venue.toJSON() : venue;
       return res.status(201).json(body);
     } catch (error) {
