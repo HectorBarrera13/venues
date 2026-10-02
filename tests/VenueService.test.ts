@@ -45,6 +45,7 @@ describe('VenueService', () => {
 
       const result = await service.registerVenue(payload, currentUser);
 
+      expect(result).toBeInstanceOf(Venue);
       expect(result.ownerId).toBe('user-789');
     });
 
