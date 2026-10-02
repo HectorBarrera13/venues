@@ -1,6 +1,6 @@
-const { VenueService } = require('../src/services/VenueService');
-const Venue = require('../src/entities/Venue').default;
-const ApiError = require('../src/errors/ApiError').default;
+import { VenueService } from '../src/services/VenueService';
+import Venue from '../src/entities/Venue';
+import ApiError from '../src/errors/ApiError';
 
 describe('VenueService', () => {
   describe('listVenues', () => {
@@ -33,24 +33,7 @@ describe('VenueService', () => {
       service = new VenueService(mockRepository);
     });
 
-    it('should register venue without currentUser and default ownerId to venue-owner-1', async () => {
-      const payload = {
-        name: 'Teatro Metropolitan',
-        description: 'Historic theatre',
-        location: 'Centro Historico',
-      };
-
-      const result = await service.registerVenue(payload);
-
-      expect(mockRepository.save).toHaveBeenCalledTimes(1);
-      const savedVenue = mockRepository.save.mock.calls[0][0];
-      expect(savedVenue).toBeInstanceOf(Venue);
-      expect(savedVenue.name).toBe('Teatro Metropolitan');
-      expect(savedVenue.description).toBe('Historic theatre');
-      expect(savedVenue.location).toBe('Centro Historico');
-      expect(savedVenue.ownerId).toBe('venue-owner-1');
-      expect(result).toBe(savedVenue);
-    });
+    // ── success path ──────────────────────────────────────────────────────────
 
     it('should register venue using currentUser.userId when provided', async () => {
       const payload = {
@@ -65,7 +48,22 @@ describe('VenueService', () => {
       expect(result.ownerId).toBe('user-789');
     });
 
-    it('should register venue using currentUser.id when userId is absent', async () => {
+    // ── 403 path ──────────────────────────────────────────────────────────────
+
+    it('should throw 403 when currentUser is not provided', async () => {
+      const payload = {
+        name: 'Teatro Metropolitan',
+        description: 'Historic theatre',
+        location: 'Centro Historico',
+      };
+
+      const error = await service.registerVenue(payload).catch((e) => e);
+
+      expect(error).toBeInstanceOf(ApiError);
+      expect(error.statusCode).toBe(403);
+    });
+
+    it('should throw 403 when currentUser has no role', async () => {
       const payload = {
         name: 'Auditorio Sala B',
         description: 'Acoustic hall',
@@ -73,25 +71,26 @@ describe('VenueService', () => {
       };
       const currentUser = { id: 'legacy-id-45' };
 
-      const result = await service.registerVenue(payload, currentUser);
+      const error = await service.registerVenue(payload, currentUser).catch((e) => e);
 
-      expect(result.ownerId).toBe('legacy-id-45');
+      expect(error).toBeInstanceOf(ApiError);
+      expect(error.statusCode).toBe(403);
     });
 
-    it('should register venue using data.ownerId when no currentUser is provided', async () => {
+    it('should throw 403 when currentUser is absent even if ownerId supplied in data', async () => {
       const payload = {
         name: 'Open Air Stadium',
         description: 'Large arena',
         location: 'Tlalpan',
-        ownerId: 'explicit-owner-99',
       };
 
-      const result = await service.registerVenue(payload);
+      const error = await service.registerVenue(payload).catch((e) => e);
 
-      expect(result.ownerId).toBe('explicit-owner-99');
+      expect(error).toBeInstanceOf(ApiError);
+      expect(error.statusCode).toBe(403);
     });
 
-    it('should not throw 403 when user is not a venue_owner (allows unauthenticated / organizer)', async () => {
+    it('should throw 403 when currentUser.role is not venue_owner', async () => {
       const payload = {
         name: 'Community Center',
         description: 'Multi-purpose room',
@@ -99,8 +98,13 @@ describe('VenueService', () => {
       };
       const nonOwnerUser = { userId: 'user-organizer', role: 'organizer' };
 
-      await expect(service.registerVenue(payload, nonOwnerUser)).resolves.toBeInstanceOf(Venue);
+      const error = await service.registerVenue(payload, nonOwnerUser).catch((e) => e);
+
+      expect(error).toBeInstanceOf(ApiError);
+      expect(error.statusCode).toBe(403);
     });
+
+    // ── 400 path ──────────────────────────────────────────────────────────────
 
     it('should throw ApiError(400) if name is missing or empty', async () => {
       const payload = {
