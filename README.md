@@ -29,11 +29,13 @@ Developed and maintained by **Team SubAgentes**.
 ### Prerequisites
 
 - **Node.js**: `v22.14.0` or higher (configured in `.nvmrc`):
-  ```bash
-  nvm use
-  ```
+   ```bash
+   nvm use
+   ```
 - **npm**: `v10.x` or higher
 - **Git**
+- **Docker** with Compose v2 — required to run the backend and MongoDB locally.
+  No separate MongoDB installation is needed; the database runs in a container.
 
 ### Installation
 
@@ -68,53 +70,75 @@ Developed and maintained by **Team SubAgentes**.
 
 ### Running Locally
 
-- **Development mode** (with TypeScript reload):
-  ```bash
-  npm run dev
-  ```
-- **Compiled mode**:
-  ```bash
-  npm start
-  ```
+The backend and MongoDB both run in Docker; see [Running with Docker](#running-with-docker).
 
 By default, the server listens on `http://localhost:3000`.
 
-### Local MongoDB and Prisma
+### Running with Docker
 
-This service uses Prisma ORM 6.19.3 for MongoDB. Prisma 7 does not support the MongoDB connector used here. MongoDB must run as a single-node replica set for Prisma relation writes and transactions. The database can run directly on the host; Docker is not required for this setup.
+This service uses Prisma ORM 6.19.3 for MongoDB. Prisma 7 does not support the MongoDB connector used here, and MongoDB must run as a **single-node replica set** (`rs0`) for Prisma relation writes and transactions. `compose.yaml` provides both services and initializes `rs0` automatically on first boot.
 
-1. Install [MongoDB Community Server](https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-windows/) locally and start `mongod` bound to `127.0.0.1:27017` with replica set name `rs0`. On Windows, run:
-
-   ```powershell
-   .\scripts\start-mongo.ps1
-   ```
-
-   The script accepts an installed `mongod` on `PATH` or the portable MongoDB 8.0.32 binary at `.local/mongodb-win32-x86_64-windows-8.0.32/bin/mongod.exe`. It creates `.local/mongo-data` and keeps MongoDB running in the terminal. In another terminal, initialize the replica set once:
+1. Copy the environment template and set a signing secret:
 
    ```bash
-   npm run mongo:init
+   cp .env.example .env
    ```
 
-2. Copy `.env.example` to `.env` and `.env.test.example` to `.env.test`. These files use separate `venue_db` and `venue_db_test` databases on the local instance. They are ignored by Git. Change the URLs if your local MongoDB uses another address or credentials.
+   `JWT_SECRET` must hold a long random value shared with the Auth service (`openssl rand -hex 32`).
 
-3. Generate the Prisma client and create the collections and indexes:
+   > `DATABASE_URL` in `.env` is only used by tools you run **on the host**. The `api` container overrides it to `mongodb://mongo:27017/...`, because inside the compose network Mongo is reachable as `mongo`, not `127.0.0.1`. You do not need to edit it.
+
+2. Build and start both services:
 
    ```bash
-   npm run db:generate
-   npm run db:push
-   npm run db:push:test
+   npm run docker:up
    ```
 
-4. Check each connection:
+   The `api` container bind-mounts the working directory and runs `tsx watch`, so editing files on the host reloads the server automatically.
+
+3. Create the collections and indexes once:
 
    ```bash
-   npm run db:check
-   npm run db:check:test
+   npm run db:push:docker
    ```
+
+4. Follow the logs:
+
+   ```bash
+   npm run docker:logs
+   ```
+
+Common lifecycle commands:
+
+| Command | Description |
+|---|---|
+| `npm run docker:up` | Build and start MongoDB plus the API |
+| `npm run docker:logs` | Stream API logs |
+| `npm run docker:down` | Stop and remove both containers |
+| `docker compose down -v` | Stop and **also delete the database volume** |
+
+Database data lives in the named Docker volume `venue-mongo-data`, so it survives restarts and `docker compose down`. Removing `.env` is not required; the container reads it through `env_file`.
+
+### MongoDB and Prisma without Docker
+
+The Prisma client and schema are usable against any MongoDB replica set, provided `DATABASE_URL` points at it:
+
+```bash
+npm run db:generate
+npm run db:push
+npm run db:check
+```
 
 The schema in `prisma/schema.prisma` defines `VenueOwner`, `Venue`, `Zone`, and `Seat`, with references matching the venue-store diagram. IDs are strings to match the existing venue API; `Venue.description` is stored as `desc` in MongoDB. `VenueOwner` holds the owner ID and name for the venue store; authentication remains owned by the Auth service. Prisma relations on MongoDB are managed by Prisma, so write operations should go through the client.
 
 The venue routes now use `VenueRepository.ts`, which stores records through Prisma. `POST /venues` creates a venue and its owner record when needed; `GET /venues` reads persisted venues; `GET /venues/{id}` reads one venue or answers `404`. Both `/api/venues` aliases use the same repository. Data remains in MongoDB after the API process restarts.
+
+### Database addresses
+
+| Context | `DATABASE_URL` host | Notes |
+|---|---|---|
+| Inside the `api` container | `mongo:27017` | Service name on the compose network; set by `compose.yaml` |
+| On the host (Prisma CLI, editors) | `127.0.0.1:27017` | Published by the `mongo` service; comes from `.env` |
 
 ---
 
@@ -122,11 +146,18 @@ The venue routes now use `VenueRepository.ts`, which stores records through Pris
 
 | Script | Command | Description |
 |---|---|---|
-| `npm run dev` | `tsx watch src/server.ts` | Starts TypeScript server with live reloading |
+| `npm run docker:up` | `docker compose up -d --build` | Builds and starts MongoDB plus the API with hot reload |
+| `npm run docker:down` | `docker compose down` | Stops and removes the containers |
+| `npm run docker:logs` | `docker compose logs -f api` | Streams API container logs |
+| `npm run db:push:docker` | `docker compose exec api npm run db:push` | Creates collections and indexes in the containerized MongoDB |
+| `npm run db:check:docker` | `docker compose exec api npm run db:check` | Pings MongoDB from inside the container |
+| `npm run dev` | `tsx watch src/server.ts` | Starts the server directly on the host (see Docker notes above) |
 | `npm start` | `npm run build && node dist/src/server.js` | Compiles and starts the server |
 | `npm test` | `jest` | Executes the unit test suite |
 | `npm run lint` | `eslint .` | Runs static code analysis |
 | `npm run build` | `tsc -p tsconfig.json && tsc -p tsconfig.tests.json` | Compiles the service and checks TypeScript tests |
+| `npm run db:generate` | `prisma generate` | Generates the Prisma client from `prisma/schema.prisma` |
+| `npm run db:check` | `tsx scripts/check-database.ts` | Pings MongoDB using `DATABASE_URL` from `.env` |
 | `npm run openapi:generate` | `tsx scripts/generate-openapi.ts` | Generates `openapi.json` without starting the server |
 | `npm run token:make` | `tsx scripts/make-token.ts` | Mints a development access token (`scripts/make-token`) |
 | `npm run mocks:verify` | `tsx shared/mocks/verify.ts` | Validates the shared mock user catalogue |
@@ -146,6 +177,8 @@ Detailed schema definitions, sample request payloads, and response bodies are do
 ```text
 venues/
 ├── .github/workflows/    # CI/CD pipelines (on_pr.yml, release.yml)
+├── compose.yaml          # Local stack: MongoDB (rs0) + API with hot reload
+├── Dockerfile            # Image definitions: deps, dev (hot reload), prod
 ├── docs/                 # Detailed architecture and API documentation
 ├── context/              # Ticket D-Saster domain and product roadmap
 ├── scripts/              # Versioning (bump.sh), changelog and make-token tooling
