@@ -20,19 +20,9 @@ export interface ResponseObject {
   content?: Record<string, MediaTypeObject>;
 }
 
-export interface SecuritySchemeObject {
-  type: string;
-  description?: string;
-  name?: string;
-  in?: string;
-  scheme?: string;
-  bearerFormat?: string;
-}
-
 export interface OperationObject {
   operationId: string;
   summary: string;
-  security?: Array<Record<string, string[]>>;
   requestBody?: RequestBodyObject;
   responses: Record<string, ResponseObject>;
 }
@@ -48,7 +38,6 @@ export interface InfoObject {
 }
 
 export interface ComponentsObject {
-  securitySchemes?: Record<string, SecuritySchemeObject>;
   schemas: Record<string, JsonSchema>;
 }
 
@@ -84,7 +73,6 @@ function venueOperations(suffix: string): PathItemObject {
     post: {
       operationId: `createVenue${suffix}`,
       summary: 'Create a venue',
-      security: [{ bearerAuth: [] }],
       requestBody: {
         required: true,
         content: {
@@ -96,8 +84,6 @@ function venueOperations(suffix: string): PathItemObject {
       responses: {
         201: jsonResponse('Created venue', venueRef),
         400: jsonResponse('Invalid venue data', errorRef),
-        401: jsonResponse('Unauthorized: missing or invalid authentication token', errorRef),
-        403: jsonResponse('Forbidden: insufficient permissions', errorRef),
         500: jsonResponse('Server error', errorRef),
       },
     },
@@ -124,22 +110,15 @@ export const openApiDefinition: OpenAPIDocument = {
     },
   },
   components: {
-    securitySchemes: {
-      bearerAuth: {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-      },
-    },
     schemas: {
       CreateVenue: {
         type: 'object',
         required: ['name', 'description', 'location'],
-        additionalProperties: false,
         properties: {
           name: { type: 'string' },
           description: { type: 'string' },
           location: { type: 'string' },
+          ownerId: { type: 'string', description: 'Optional owner ID accepted by the current service.' },
         },
       },
       Venue: {

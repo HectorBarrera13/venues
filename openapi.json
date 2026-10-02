@@ -38,11 +38,6 @@
       "post": {
         "operationId": "createVenue",
         "summary": "Create a venue",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -66,26 +61,6 @@
           },
           "400": {
             "description": "Invalid venue data",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized: missing or invalid authentication token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden: insufficient permissions",
             "content": {
               "application/json": {
                 "schema": {
@@ -140,11 +115,6 @@
       "post": {
         "operationId": "createVenueApi",
         "summary": "Create a venue",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -168,26 +138,6 @@
           },
           "400": {
             "description": "Invalid venue data",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized: missing or invalid authentication token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden: insufficient permissions",
             "content": {
               "application/json": {
                 "schema": {
@@ -229,13 +179,6 @@
     }
   },
   "components": {
-    "securitySchemes": {
-      "bearerAuth": {
-        "type": "http",
-        "scheme": "bearer",
-        "bearerFormat": "JWT"
-      }
-    },
     "schemas": {
       "CreateVenue": {
         "type": "object",
@@ -244,7 +187,6 @@
           "description",
           "location"
         ],
-        "additionalProperties": false,
         "properties": {
           "name": {
             "type": "string"
@@ -254,6 +196,10 @@
           },
           "location": {
             "type": "string"
+          },
+          "ownerId": {
+            "type": "string",
+            "description": "Optional owner ID accepted by the current service."
           }
         }
       },
