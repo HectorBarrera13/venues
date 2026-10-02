@@ -70,24 +70,30 @@ describe('VenueController.list (Task 5)', () => {
 
 describe('VenueController.create (Task 2)', () => {
   let mockVenueService;
+  let mockUserProvider;
+  let mockCurrentUser;
   let controller;
   let req;
   let res;
   let next;
 
   beforeEach(() => {
+    mockCurrentUser = { userId: 'user-42', role: 'venue_owner' };
     mockVenueService = {
       listVenues: jest.fn(),
       registerVenue: jest.fn(),
     };
-    controller = new VenueController(mockVenueService);
+    mockUserProvider = {
+      getCurrentUser: jest.fn().mockReturnValue(mockCurrentUser),
+    };
+    controller = new VenueController(mockVenueService, mockUserProvider);
     req = {
+      headers: {},
       body: {
         name: 'Palacio de los Deportes',
         description: 'Indoor arena',
         location: 'Iztacalco',
       },
-      user: { id: 'user-42' },
     };
     res = {
       status: jest.fn().mockReturnThis(),
@@ -96,7 +102,7 @@ describe('VenueController.create (Task 2)', () => {
     next = jest.fn();
   });
 
-  it('should call venueService.registerVenue with req.body and req.user and return 201 with serialized JSON', async () => {
+  it('should call venueService.registerVenue with req.body and currentUser from provider and return 201 with serialized JSON', async () => {
     const mockCreatedVenue = {
       id: 'venue-10',
       name: 'Palacio de los Deportes',
@@ -117,7 +123,8 @@ describe('VenueController.create (Task 2)', () => {
 
     await controller.create(req, res, next);
 
-    expect(mockVenueService.registerVenue).toHaveBeenCalledWith(req.body, req.user);
+    expect(mockUserProvider.getCurrentUser).toHaveBeenCalledWith(req);
+    expect(mockVenueService.registerVenue).toHaveBeenCalledWith(req.body, mockCurrentUser);
     expect(mockCreatedVenue.toJSON).toHaveBeenCalledTimes(1);
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({

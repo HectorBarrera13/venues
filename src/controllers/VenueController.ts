@@ -1,14 +1,16 @@
 import type { NextFunction, Request, Response } from 'express';
-import { venueService, type VenueService, type VenueUser } from '../services/VenueService';
-
-type VenueRequest = Request & { user?: VenueUser };
+import { venueService, type VenueService } from '../services/VenueService';
+import { currentUserProvider, type ICurrentUserProvider } from '../providers/CurrentUserProvider';
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Internal Server Error';
 }
 
 export class VenueController {
-  constructor(private readonly service: Pick<VenueService, 'listVenues' | 'registerVenue'> = venueService) {}
+  constructor(
+    private readonly service: Pick<VenueService, 'listVenues' | 'registerVenue'> = venueService,
+    private readonly userProvider: ICurrentUserProvider = currentUserProvider,
+  ) {}
 
   list = async (_req: Request, res: Response, next?: NextFunction): Promise<Response | void> => {
     try {
@@ -22,9 +24,10 @@ export class VenueController {
     }
   };
 
-  create = async (req: VenueRequest, res: Response, next?: NextFunction): Promise<Response | void> => {
+  create = async (req: Request, res: Response, next?: NextFunction): Promise<Response | void> => {
     try {
-      const venue = await this.service.registerVenue(req.body, req.user);
+      const currentUser = this.userProvider.getCurrentUser(req);
+      const venue = await this.service.registerVenue(req.body, currentUser);
       const body = typeof venue?.toJSON === 'function' ? venue.toJSON() : venue;
       return res.status(201).json(body);
     } catch (error) {
