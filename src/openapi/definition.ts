@@ -1,9 +1,57 @@
-const { version } = require('../../package.json');
+interface PackageManifest {
+  version: string;
+}
 
-const venueRef = { $ref: '#/components/schemas/Venue' };
-const errorRef = { $ref: '#/components/schemas/Error' };
+const { version } = require('../../package.json') as PackageManifest;
 
-function jsonResponse(description, schema) {
+export type JsonSchema = Record<string, unknown>;
+
+export interface MediaTypeObject {
+  schema: JsonSchema;
+}
+
+export interface RequestBodyObject {
+  required: boolean;
+  content: Record<string, MediaTypeObject>;
+}
+
+export interface ResponseObject {
+  description: string;
+  content?: Record<string, MediaTypeObject>;
+}
+
+export interface OperationObject {
+  operationId: string;
+  summary: string;
+  requestBody?: RequestBodyObject;
+  responses: Record<string, ResponseObject>;
+}
+
+export interface PathItemObject {
+  get?: OperationObject;
+  post?: OperationObject;
+}
+
+export interface InfoObject {
+  title: string;
+  version: string;
+}
+
+export interface ComponentsObject {
+  schemas: Record<string, JsonSchema>;
+}
+
+export interface OpenAPIDocument {
+  openapi: string;
+  info: InfoObject;
+  paths: Record<string, PathItemObject>;
+  components: ComponentsObject;
+}
+
+const venueRef: JsonSchema = { $ref: '#/components/schemas/Venue' };
+const errorRef: JsonSchema = { $ref: '#/components/schemas/Error' };
+
+function jsonResponse(description: string, schema: JsonSchema): ResponseObject {
   return {
     description,
     content: {
@@ -12,7 +60,7 @@ function jsonResponse(description, schema) {
   };
 }
 
-function venueOperations(suffix) {
+function venueOperations(suffix: string): PathItemObject {
   return {
     get: {
       operationId: `listVenues${suffix}`,
@@ -42,7 +90,7 @@ function venueOperations(suffix) {
   };
 }
 
-module.exports = {
+export const openApiDefinition: OpenAPIDocument = {
   openapi: '3.0.3',
   info: {
     title: 'Ticket D-Saster Venue Service',
@@ -102,3 +150,5 @@ module.exports = {
     },
   },
 };
+
+export default openApiDefinition;

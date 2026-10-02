@@ -1,17 +1,15 @@
+import type { NextFunction, Request, Response } from 'express';
+
 /**
  * Checks whether an incoming origin is permitted.
  * Permits loopback addresses, same-host/IP requests, and origins listed in CORS_ALLOWED_ORIGINS.
- *
- * @param {string|undefined} origin
- * @param {import('express').Request} [req]
- * @returns {boolean}
  */
-function isAllowedOrigin(origin, req) {
+export function isAllowedOrigin(origin: string | undefined, req?: Request): boolean {
   if (!origin) {
     return true;
   }
 
-  let originUrl;
+  let originUrl: URL;
   try {
     originUrl = new URL(origin);
   } catch {
@@ -28,7 +26,7 @@ function isAllowedOrigin(origin, req) {
     return true;
   }
 
-  if (req && req.headers && req.headers.host) {
+  if (req?.headers?.host) {
     // Strip port and IPv6 brackets from incoming host header to compare host IP/hostname
     const hostHeader = req.headers.host.replace(/:\d+$/, '').toLowerCase().replace(/^\[/, '').replace(/\]$/, '');
     if (originHostname === hostHeader) {
@@ -36,7 +34,7 @@ function isAllowedOrigin(origin, req) {
     }
   }
 
-  if (req && req.hostname) {
+  if (req?.hostname) {
     const reqHostname = req.hostname.toLowerCase().replace(/^\[/, '').replace(/\]$/, '');
     if (originHostname === reqHostname) {
       return true;
@@ -55,17 +53,14 @@ function isAllowedOrigin(origin, req) {
 
 /**
  * Express CORS middleware.
- *
- * @param {import('express').Request} req
- * @param {import('express').Response} res
- * @param {import('express').NextFunction} next
  */
-function corsMiddleware(req, res, next) {
+export function corsMiddleware(req: Request, res: Response, next: NextFunction): void {
   const origin = req.headers.origin;
 
   if (origin) {
     if (!isAllowedOrigin(origin, req)) {
-      return res.status(403).json({ error: 'CORS origin not allowed' });
+      res.status(403).json({ error: 'CORS origin not allowed' });
+      return;
     }
 
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -80,12 +75,11 @@ function corsMiddleware(req, res, next) {
       req.headers['access-control-request-headers'] || 'Content-Type, Authorization, Accept, X-Requested-With, Origin'
     );
     res.setHeader('Access-Control-Max-Age', '86400');
-    return res.sendStatus(204);
+    res.sendStatus(204);
+    return;
   }
 
-  return next();
+  next();
 }
 
-module.exports = corsMiddleware;
-module.exports.corsMiddleware = corsMiddleware;
-module.exports.isAllowedOrigin = isAllowedOrigin;
+export default corsMiddleware;

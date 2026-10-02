@@ -114,7 +114,8 @@ The venue routes now use `VenueRepository.ts`, which stores records through Pris
 | `npm test` | `jest` | Executes the unit test suite |
 | `npm run lint` | `eslint .` | Runs static code analysis |
 | `npm run build` | `tsc -p tsconfig.json && tsc -p tsconfig.tests.json` | Compiles the service and checks TypeScript tests |
-| `npm run openapi:generate` | `node scripts/generate-openapi.js` | Generates `openapi.json` without starting the server |
+| `npm run openapi:generate` | `tsx scripts/generate-openapi.ts` | Generates `openapi.json` without starting the server |
+| `npm run mocks:verify` | `tsx shared/mocks/verify.ts` | Validates the shared mock user catalogue |
 
 ---
 
@@ -144,8 +145,8 @@ venues/
 │   ├── repositories/     # Data access abstractions (secondary adapters)
 │   ├── routes/           # Express router configuration
 │   ├── services/         # Application business logic and use cases
-│   ├── app.js            # Express app assembly
-│   └── server.js         # HTTP server entrypoint
+│   ├── app.ts            # Express app assembly
+│   └── server.ts         # HTTP server entrypoint
 └── tests/                # Unit and integration test suites
 ```
 
