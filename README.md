@@ -20,7 +20,7 @@ Developed and maintained by **Team SubAgentes**.
 ## Features
 
 - **Authoritative Venue Catalogue**: Central source of truth for physical venues, locations, and seating configurations.
-- **Identity Attribution**: Secure server-side owner identification extracted from authentication context.
+- **Identity Attribution**: Secure server-side owner identification extracted from the verified access token.
 
 ---
 
@@ -52,6 +52,19 @@ Developed and maintained by **Team SubAgentes**.
    ```bash
    cp .env.example .env
    ```
+
+   `JWT_SECRET` must hold a long random value shared with the Auth service; it signs and verifies
+   partner access tokens (`openssl rand -hex 32`).
+
+4. Generate a development token:
+   ```bash
+   npm run token:make -- --role VENUE_OWNER --sub owner-1
+   npm run token:make -- --role ORGANIZER --sub organizer-1 --expired
+   ```
+
+   Every venue endpoint requires `Authorization: Bearer <token>`. `POST /venues` additionally requires
+   the `VENUE_OWNER` role, and the venue owner is always taken from the token `sub` claim. The full
+   contract lives in [`src/auth/authConfig.ts`](src/auth/authConfig.ts).
 
 ### Running Locally
 
@@ -101,7 +114,7 @@ This service uses Prisma ORM 6.19.3 for MongoDB. Prisma 7 does not support the M
 
 The schema in `prisma/schema.prisma` defines `VenueOwner`, `Venue`, `Zone`, and `Seat`, with references matching the venue-store diagram. IDs are strings to match the existing venue API; `Venue.description` is stored as `desc` in MongoDB. `VenueOwner` holds the owner ID and name for the venue store; authentication remains owned by the Auth service. Prisma relations on MongoDB are managed by Prisma, so write operations should go through the client.
 
-The venue routes now use `VenueRepository.ts`, which stores records through Prisma. `POST /venues` creates a venue and its owner record when needed; `GET /venues` reads persisted venues. Both `/api/venues` aliases use the same repository. Data remains in MongoDB after the API process restarts.
+The venue routes now use `VenueRepository.ts`, which stores records through Prisma. `POST /venues` creates a venue and its owner record when needed; `GET /venues` reads persisted venues; `GET /venues/{id}` reads one venue or answers `404`. Both `/api/venues` aliases use the same repository. Data remains in MongoDB after the API process restarts.
 
 ---
 
@@ -115,6 +128,7 @@ The venue routes now use `VenueRepository.ts`, which stores records through Pris
 | `npm run lint` | `eslint .` | Runs static code analysis |
 | `npm run build` | `tsc -p tsconfig.json && tsc -p tsconfig.tests.json` | Compiles the service and checks TypeScript tests |
 | `npm run openapi:generate` | `tsx scripts/generate-openapi.ts` | Generates `openapi.json` without starting the server |
+| `npm run token:make` | `tsx scripts/make-token.ts` | Mints a development access token (`scripts/make-token`) |
 | `npm run mocks:verify` | `tsx shared/mocks/verify.ts` | Validates the shared mock user catalogue |
 
 ---
@@ -134,14 +148,14 @@ venues/
 ├── .github/workflows/    # CI/CD pipelines (on_pr.yml, release.yml)
 ├── docs/                 # Detailed architecture and API documentation
 ├── context/              # Ticket D-Saster domain and product roadmap
-├── scripts/              # Versioning (bump.sh) and changelog tooling
+├── scripts/              # Versioning (bump.sh), changelog and make-token tooling
 ├── shared/mocks/         # Shared mock user and role test catalogue
 ├── src/
-│   ├── auth/             # Identity resolution and authentication adapters
+│   ├── auth/             # JWT contract, verifier and identity resolution
 │   ├── controllers/      # HTTP request handlers (primary adapters)
 │   ├── entities/         # Pure domain entities (Venue)
 │   ├── errors/           # Custom error definitions (ApiError)
-│   ├── middleware/       # Middlewares (CORS, centralized error handling)
+│   ├── middleware/       # Middlewares (auth, role guard, CORS, error handling)
 │   ├── repositories/     # Data access abstractions (secondary adapters)
 │   ├── routes/           # Express router configuration
 │   ├── services/         # Application business logic and use cases

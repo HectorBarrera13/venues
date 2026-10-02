@@ -23,6 +23,39 @@ describe('VenueService', () => {
     });
   });
 
+  describe('getVenueById', () => {
+    it('should return the venue when it exists', async () => {
+      const venue = new Venue({ id: 'v-1', name: 'Venue 1', description: 'D', location: 'L', ownerId: 'o-1' });
+      const mockRepository = { findAll: jest.fn(), save: jest.fn(), findById: jest.fn().mockResolvedValue(venue) };
+
+      const result = await new VenueService(mockRepository).getVenueById('v-1');
+
+      expect(mockRepository.findById).toHaveBeenCalledWith('v-1');
+      expect(result).toBe(venue);
+    });
+
+    it('should throw 404 when the venue does not exist', async () => {
+      const mockRepository = { findAll: jest.fn(), save: jest.fn(), findById: jest.fn().mockResolvedValue(null) };
+
+      const error = await new VenueService(mockRepository).getVenueById('missing').catch((e) => e);
+
+      expect(error).toBeInstanceOf(ApiError);
+      expect(error.statusCode).toBe(404);
+    });
+  });
+
+  describe('venueExists', () => {
+    it('should resolve to true only when the repository finds the venue', async () => {
+      const findById = jest.fn().mockResolvedValueOnce(new Venue('Venue 1', 'D', 'L', 'o-1')).mockResolvedValueOnce(null);
+      const mockRepository = { findAll: jest.fn(), save: jest.fn(), findById };
+
+      const service = new VenueService(mockRepository);
+
+      await expect(service.venueExists('v-1')).resolves.toBe(true);
+      await expect(service.venueExists('missing')).resolves.toBe(false);
+    });
+  });
+
   describe('registerVenue', () => {
     let mockRepository;
     let service;

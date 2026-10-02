@@ -1,9 +1,25 @@
+const jwt = require('jsonwebtoken');
 const request = require('supertest');
 const app = require('../src/app').default;
 const { venueRepository } = require('../src/repositories/VenueRepository');
 const { venueService } = require('../src/services/VenueService');
 const Venue = require('../src/entities/Venue').default;
 const ApiError = require('../src/errors/ApiError').default;
+const { AUTH_CONFIG } = require('../src/auth/authConfig');
+
+const TEST_SECRET = 'integration-test-secret';
+process.env.JWT_SECRET = TEST_SECRET;
+
+function authToken(role) {
+  return `Bearer ${jwt.sign({ [AUTH_CONFIG.claims.role]: role }, TEST_SECRET, {
+    algorithm: AUTH_CONFIG.algorithm,
+    subject: 'route-test-user',
+    expiresIn: '1h',
+  })}`;
+}
+
+const OWNER_AUTHORIZATION = authToken(AUTH_CONFIG.roles.VENUE_OWNER);
+const ORGANIZER_AUTHORIZATION = authToken(AUTH_CONFIG.roles.ORGANIZER);
 
 describe('GET /venues Route Integration (Task 5)', () => {
   let findAllSpy;
@@ -19,6 +35,7 @@ describe('GET /venues Route Integration (Task 5)', () => {
   it('should return 200 with an empty array when no venues exist', async () => {
     const response = await request(app)
       .get('/venues')
+      .set('Authorization', ORGANIZER_AUTHORIZATION)
       .expect('Content-Type', /json/)
       .expect(200);
 
@@ -47,6 +64,7 @@ describe('GET /venues Route Integration (Task 5)', () => {
 
     const response = await request(app)
       .get('/venues')
+      .set('Authorization', ORGANIZER_AUTHORIZATION)
       .expect('Content-Type', /json/)
       .expect(200);
 
@@ -74,6 +92,7 @@ describe('GET /venues Route Integration (Task 5)', () => {
   it('should also respond at /api/venues for frontend proxy compatibility', async () => {
     const response = await request(app)
       .get('/api/venues')
+      .set('Authorization', ORGANIZER_AUTHORIZATION)
       .expect(200);
 
     expect(response.body).toEqual([]);
@@ -109,6 +128,7 @@ describe('POST /venues Route Integration (Task 2 & 7)', () => {
 
     const response = await request(app)
       .post('/venues')
+      .set('Authorization', OWNER_AUTHORIZATION)
       .send(payload)
       .expect('Content-Type', /json/)
       .expect(201);
@@ -130,6 +150,7 @@ describe('POST /venues Route Integration (Task 2 & 7)', () => {
 
     const response = await request(app)
       .post('/venues')
+      .set('Authorization', OWNER_AUTHORIZATION)
       .send({})
       .expect('Content-Type', /json/)
       .expect(400);
@@ -144,6 +165,7 @@ describe('POST /venues Route Integration (Task 2 & 7)', () => {
 
     const response = await request(app)
       .post('/venues')
+      .set('Authorization', OWNER_AUTHORIZATION)
       .send({ name: 'Secret Club' })
       .expect('Content-Type', /json/)
       .expect(403);
@@ -158,6 +180,7 @@ describe('POST /venues Route Integration (Task 2 & 7)', () => {
 
     const response = await request(app)
       .post('/venues')
+      .set('Authorization', OWNER_AUTHORIZATION)
       .send({ name: 'Club' })
       .expect('Content-Type', /json/)
       .expect(500);
@@ -179,6 +202,7 @@ describe('POST /venues Route Integration (Task 2 & 7)', () => {
 
     const response = await request(app)
       .post('/api/venues')
+      .set('Authorization', OWNER_AUTHORIZATION)
       .send({ name: 'Teatro Metropolitan' })
       .expect(201);
 
