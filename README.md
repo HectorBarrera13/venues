@@ -55,13 +55,25 @@ Developed and maintained by **Team SubAgentes**.
    cp .env.example .env
    ```
 
-   `JWT_SECRET` must hold a long random value shared with the Auth service; it signs and verifies
-   partner access tokens (`openssl rand -hex 32`).
-
-4. Generate a development token:
+   Generate a local signing secret:
    ```bash
-   npm run token:make -- --role VENUE_OWNER --sub owner-1
-   npm run token:make -- --role ORGANIZER --sub organizer-1 --expired
+   openssl rand -hex 32
+   ```
+   Replace the `JWT_SECRET` placeholder in `.env` with the generated value. The API verifies
+   tokens with this value and the local token generator uses it to sign test tokens. In a deployed
+   environment, it must match the Auth service's signing secret.
+
+4. Generate a development token for a venue owner:
+   ```bash
+   npm run --silent token:make -- --role VENUE_OWNER --sub owner-1
+   ```
+
+   The command prints a signed JWT that is valid for one hour. Use it as the bearer token when
+   calling the API. To generate tokens for authorization checks, use an organizer or an expired
+   venue-owner token:
+   ```bash
+   npm run token:make -- --role ORGANIZER --sub organizer-1
+   npm run token:make -- --role VENUE_OWNER --sub owner-1 --expired
    ```
 
    Every venue endpoint requires `Authorization: Bearer <token>`. `POST /venues` additionally requires
@@ -84,14 +96,15 @@ This service uses Prisma ORM 6.19.3 for MongoDB. Prisma 7 does not support the M
    cp .env.example .env
    ```
 
-   `JWT_SECRET` must hold a long random value shared with the Auth service (`openssl rand -hex 32`).
+   Set `JWT_SECRET` in `.env` as described above; the API and local token generator must use the same
+   value. In a deployed environment, it must match the Auth service's signing secret.
 
    > `DATABASE_URL` in `.env` is only used by tools you run **on the host**. The `api` container overrides it to `mongodb://mongo:27017/...`, because inside the compose network Mongo is reachable as `mongo`, not `127.0.0.1`. You do not need to edit it.
 
-2. Build and start both services:
+2. Build and start both services in the background:
 
    ```bash
-   npm run docker:up
+   docker compose up -d --build
    ```
 
    The `api` container bind-mounts the working directory and runs `tsx watch`, so editing files on the host reloads the server automatically.
@@ -146,7 +159,7 @@ The venue routes now use `VenueRepository.ts`, which stores records through Pris
 
 | Script | Command | Description |
 |---|---|---|
-| `npm run docker:up` | `docker compose up -d --build` | Builds and starts MongoDB plus the API with hot reload |
+| `npm run docker:up` | `docker compose up -d --build` | Alias that builds and starts MongoDB plus the API with hot reload |
 | `npm run docker:down` | `docker compose down` | Stops and removes the containers |
 | `npm run docker:logs` | `docker compose logs -f api` | Streams API container logs |
 | `npm run db:push:docker` | `docker compose exec api npm run db:push` | Creates collections and indexes in the containerized MongoDB |
