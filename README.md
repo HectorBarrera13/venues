@@ -58,7 +58,7 @@ Developed and maintained by **Team SubAgentes**.
    `JWT_SECRET` must hold a long random value shared with the Auth service; it signs and verifies
    partner access tokens (`openssl rand -hex 32`).
 
-4. Generate a development token:
+4. Generate a development access token:
    ```bash
    npm run token:make -- --role VENUE_OWNER --sub owner-1
    npm run token:make -- --role ORGANIZER --sub organizer-1 --expired
@@ -68,11 +68,74 @@ Developed and maintained by **Team SubAgentes**.
    the `VENUE_OWNER` role, and the venue owner is always taken from the token `sub` claim. The full
    contract lives in [`src/auth/authConfig.ts`](src/auth/authConfig.ts).
 
+   There is no login endpoint: tokens are minted locally with `token:make` and handed to the
+   frontend, which is what [Connecting the Frontend](#connecting-the-frontend-venues-front) covers.
+
 ### Running Locally
 
 The backend and MongoDB both run in Docker; see [Running with Docker](#running-with-docker).
 
 By default, the server listens on `http://localhost:3000`.
+
+### Connecting the Frontend (`venues-front`)
+
+The Backstage frontend in `venues-front` runs with Vite **on the host** — it is not containerized —
+and reaches this service through the port published by the `api` container (`3000:3000`). Both sides
+therefore need to be up for them to talk: this service in Docker, Vite on the host.
+
+There is no login endpoint: tokens are minted here and injected into the frontend environment.
+
+1. Start the stack and create the collections (see [Running with Docker](#running-with-docker)):
+
+   ```bash
+   npm run docker:up
+   npm run db:push:docker
+   ```
+
+2. Mint a token from inside the container, so it is signed with the exact `JWT_SECRET` the API
+   loads through `env_file`. It is printed to stdout and lives 1 hour by default:
+
+   ```bash
+   docker compose exec api npm run token:make -- --role VENUE_OWNER --sub owner-1
+   ```
+
+   Running `npm run token:make ...` on the host yields the same token, since both read the same
+   `.env`. Useful flags: `--name "Alex Morgan"` adds a `name` claim, `--expires-in 86400` sets the
+   lifetime in seconds, and `--expired` mints an already expired token to check the `401` path.
+
+3. Put the token in the frontend environment, in the `venues-front` checkout:
+
+   ```bash
+   cp ../venues-front/.env.example ../venues-front/.env   # first time only
+   ```
+
+   ```dotenv
+   # venues-front/.env
+   VITE_API_BASE_URL = http://localhost:3000
+   VITE_DEV_TOKEN = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+   ```
+
+   `VITE_API_BASE_URL` points at the published container port; `/api` works too through the Vite
+   proxy configured in `venues-front/vite.config.js`. This service rejects any venue request that
+   does not carry `Authorization: Bearer <token>`, so the frontend client is the piece that injects
+   the value.
+
+4. Start the frontend, and restart it whenever the token changes (Vite reads `.env` only at
+   startup):
+
+   ```bash
+   npm run dev   # in venues-front
+   ```
+
+5. Check the token against the container before debugging the UI:
+
+   ```bash
+   curl -H "Authorization: Bearer <token>" http://localhost:3000/venues
+   ```
+
+> Regenerating `JWT_SECRET` in `.env` invalidates the token sitting in the frontend `.env`: requests
+> then fail with `401` until you mint a new one and paste it again. `POST /venues` also rejects any
+> role other than `VENUE_OWNER`, so mint with `--role VENUE_OWNER` when testing venue registration.
 
 ### Running with Docker
 
@@ -107,6 +170,9 @@ This service uses Prisma ORM 6.19.3 for MongoDB. Prisma 7 does not support the M
    ```bash
    npm run docker:logs
    ```
+
+5. Mint an access token inside the container and put it in the frontend `.env` to call the venue
+   endpoints: [Connecting the Frontend](#connecting-the-frontend-venues-front).
 
 Common lifecycle commands:
 
@@ -159,7 +225,7 @@ The venue routes now use `VenueRepository.ts`, which stores records through Pris
 | `npm run db:generate` | `prisma generate` | Generates the Prisma client from `prisma/schema.prisma` |
 | `npm run db:check` | `tsx scripts/check-database.ts` | Pings MongoDB using `DATABASE_URL` from `.env` |
 | `npm run openapi:generate` | `tsx scripts/generate-openapi.ts` | Generates `openapi.json` without starting the server |
-| `npm run token:make` | `tsx scripts/make-token.ts` | Mints a development access token (`scripts/make-token`) |
+| `npm run token:make` | `tsx scripts/make-token.ts` | Mints a development access token (`--role`, `--sub`, `--expires-in`, `--expired`); same helper as `docker compose exec api npm run token:make` and `./scripts/make-token` |
 | `npm run mocks:verify` | `tsx shared/mocks/verify.ts` | Validates the shared mock user catalogue |
 
 ---
