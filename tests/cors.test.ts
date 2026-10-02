@@ -1,7 +1,23 @@
+const jwt = require('jsonwebtoken');
 const request = require('supertest');
 const app = require('../src/app').default;
 const { isAllowedOrigin } = require('../src/middleware/cors');
 const { venueRepository } = require('../src/repositories/VenueRepository');
+const { AUTH_CONFIG } = require('../src/auth/authConfig');
+
+const TEST_SECRET = 'integration-test-secret';
+process.env.JWT_SECRET = TEST_SECRET;
+
+function authToken(role) {
+  return `Bearer ${jwt.sign({ [AUTH_CONFIG.claims.role]: role }, TEST_SECRET, {
+    algorithm: AUTH_CONFIG.algorithm,
+    subject: 'cors-test-user',
+    expiresIn: '1h',
+  })}`;
+}
+
+const OWNER_AUTHORIZATION = authToken(AUTH_CONFIG.roles.VENUE_OWNER);
+const ORGANIZER_AUTHORIZATION = authToken(AUTH_CONFIG.roles.ORGANIZER);
 
 describe('CORS Origin Validation (Unit)', () => {
   const originalEnv = process.env.CORS_ALLOWED_ORIGINS;
@@ -71,7 +87,9 @@ describe('CORS Integration (Express app)', () => {
   });
 
   it('should pass through normal requests when no Origin header is sent', async () => {
-    const response = await request(app).get('/venues');
+    const response = await request(app)
+      .get('/venues')
+      .set('Authorization', ORGANIZER_AUTHORIZATION);
     expect(response.status).toBe(200);
     expect(response.headers['access-control-allow-origin']).toBeUndefined();
   });
@@ -79,6 +97,7 @@ describe('CORS Integration (Express app)', () => {
   it('should include CORS headers when request has allowed localhost origin', async () => {
     const response = await request(app)
       .get('/venues')
+      .set('Authorization', ORGANIZER_AUTHORIZATION)
       .set('Origin', 'http://localhost:5173');
 
     expect(response.status).toBe(200);
@@ -90,6 +109,7 @@ describe('CORS Integration (Express app)', () => {
   it('should include CORS headers when request has allowed 127.0.0.1 origin', async () => {
     const response = await request(app)
       .get('/venues')
+      .set('Authorization', ORGANIZER_AUTHORIZATION)
       .set('Origin', 'http://127.0.0.1:5173');
 
     expect(response.status).toBe(200);
@@ -99,6 +119,7 @@ describe('CORS Integration (Express app)', () => {
   it('should include CORS headers when request origin matches host IP', async () => {
     const response = await request(app)
       .get('/venues')
+      .set('Authorization', ORGANIZER_AUTHORIZATION)
       .set('Host', '192.168.1.50:3000')
       .set('Origin', 'http://192.168.1.50:5173');
 
@@ -152,6 +173,7 @@ describe('CORS Integration (Express app)', () => {
   it('should preserve CORS headers on application error responses', async () => {
     const response = await request(app)
       .post('/venues')
+      .set('Authorization', OWNER_AUTHORIZATION)
       .set('Origin', 'http://localhost:5173')
       .send({}); // Invalid body missing name
 

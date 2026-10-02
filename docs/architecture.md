@@ -24,5 +24,8 @@ The `venue-service` is the authoritative component for the **Venues Domain** wit
 - **Primary / Driving Adapters (`src/controllers/`, `src/routes/`)**:
   HTTP REST controllers and routing handlers. Maps inbound HTTP requests to application services and formats outbound JSON responses and status codes.
 
+- **Security (`src/middleware/authenticate.ts`, `src/middleware/requireRole.ts`, `src/auth/`)**:
+  Verifies the bearer access token in the backend (signature, explicit `HS256` algorithm, expiration) and enforces role rules before any handler runs. Missing, tampered or expired tokens produce `401`; authenticated requests with a role not allowed on the route produce `403`. Claim names, role values and the secret location are declared once in `src/auth/authConfig.ts`.
+
 - **Secondary / Driven Adapters (`src/repositories/`, `src/auth/`)**:
   `VenueRepository` persists venues through Prisma and MongoDB. The service depends on its `VenueStore` contract, so the adapter can be replaced without changing domain rules.

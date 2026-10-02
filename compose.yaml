@@ -1,0 +1,60 @@
+# Local development stack for venue-service.
+# Usage: docker compose up -d --build
+name: venues
+
+services:
+  mongo:
+    image: mongo:7.0
+    container_name: venues-mongo
+    # Prisma's MongoDB connector requires a replica set for relation writes,
+    # so a single-node rs0 is mandatory (not optional).
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      # Initiates rs0 on first boot, then simply reports replica-set health.
+      # The host in the member config must be the in-network service name so
+      # that clients inside the compose network can reach it.
+      test:
+        - CMD-SHELL
+        - >
+          mongosh --quiet --eval "
+            try { rs.status().ok }
+            catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}).ok }
+          " | grep -q 1
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 10s
+
+  api:
+    build:
+      context: .
+      target: dev
+    container_name: venues-api
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      # Overrides the host value from .env: inside the network Mongo is `mongo`,
+      # not 127.0.0.1. Keep replicaSet=rs0 so Prisma discovers the topology.
+      DATABASE_URL: mongodb://mongo:27017/venue_db?replicaSet=rs0
+      NODE_ENV: development
+      PORT: "3000"
+    volumes:
+      # Live source for tsx watch hot-reload.
+      - .:/app
+      # Anonymous volume keeps the image's Linux node_modules from being
+      # shadowed by the macOS binaries installed on the host.
+      - /app/node_modules
+
+volumes:
+  mongo-data:

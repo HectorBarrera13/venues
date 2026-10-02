@@ -20,9 +20,20 @@ export interface ResponseObject {
   content?: Record<string, MediaTypeObject>;
 }
 
+export interface ParameterObject {
+  name: string;
+  in: string;
+  required: boolean;
+  description?: string;
+  schema: JsonSchema;
+}
+
 export interface OperationObject {
   operationId: string;
   summary: string;
+  description?: string;
+  parameters?: ParameterObject[];
+  security?: Record<string, string[]>[];
   requestBody?: RequestBodyObject;
   responses: Record<string, ResponseObject>;
 }
@@ -37,8 +48,16 @@ export interface InfoObject {
   version: string;
 }
 
+export interface SecuritySchemeObject {
+  type: string;
+  scheme: string;
+  bearerFormat?: string;
+  description?: string;
+}
+
 export interface ComponentsObject {
   schemas: Record<string, JsonSchema>;
+  securitySchemes?: Record<string, SecuritySchemeObject>;
 }
 
 export interface OpenAPIDocument {
@@ -50,6 +69,15 @@ export interface OpenAPIDocument {
 
 const venueRef: JsonSchema = { $ref: '#/components/schemas/Venue' };
 const errorRef: JsonSchema = { $ref: '#/components/schemas/Error' };
+const partnerSecurity: Record<string, string[]>[] = [{ bearerAuth: [] }];
+
+const idParameter: ParameterObject = {
+  name: 'id',
+  in: 'path',
+  required: true,
+  description: 'Venue identifier.',
+  schema: { type: 'string' },
+};
 
 function jsonResponse(description: string, schema: JsonSchema): ResponseObject {
   return {
@@ -60,19 +88,42 @@ function jsonResponse(description: string, schema: JsonSchema): ResponseObject {
   };
 }
 
+function venueByIdOperations(suffix: string): PathItemObject {
+  return {
+    get: {
+      operationId: `getVenueById${suffix}`,
+      summary: 'Get a venue by ID',
+      parameters: [idParameter],
+      security: partnerSecurity,
+      responses: {
+        200: jsonResponse('Venue found', venueRef),
+        401: jsonResponse('Missing, invalid or expired access token', errorRef),
+        403: jsonResponse('Authenticated role is not a partner role', errorRef),
+        404: jsonResponse('Venue not found', errorRef),
+        500: jsonResponse('Server error', errorRef),
+      },
+    },
+  };
+}
+
 function venueOperations(suffix: string): PathItemObject {
   return {
     get: {
       operationId: `listVenues${suffix}`,
       summary: 'List venues',
+      security: partnerSecurity,
       responses: {
         200: jsonResponse('Registered venues', { type: 'array', items: venueRef }),
+        401: jsonResponse('Missing, invalid or expired access token', errorRef),
+        403: jsonResponse('Authenticated role is not a partner role', errorRef),
         500: jsonResponse('Server error', errorRef),
       },
     },
     post: {
       operationId: `createVenue${suffix}`,
       summary: 'Create a venue',
+      description: 'Requires the VENUE_OWNER role. The owner is taken from the token "sub" claim; ownerId in the body is ignored.',
+      security: partnerSecurity,
       requestBody: {
         required: true,
         content: {
@@ -84,6 +135,8 @@ function venueOperations(suffix: string): PathItemObject {
       responses: {
         201: jsonResponse('Created venue', venueRef),
         400: jsonResponse('Invalid venue data', errorRef),
+        401: jsonResponse('Missing, invalid or expired access token', errorRef),
+        403: jsonResponse('Authenticated role is not VENUE_OWNER', errorRef),
         500: jsonResponse('Server error', errorRef),
       },
     },
@@ -99,6 +152,8 @@ export const openApiDefinition: OpenAPIDocument = {
   paths: {
     '/venues': venueOperations(''),
     '/api/venues': venueOperations('Api'),
+    '/venues/{id}': venueByIdOperations(''),
+    '/api/venues/{id}': venueByIdOperations('Api'),
     '/health': {
       get: {
         operationId: 'getHealth',
@@ -110,15 +165,23 @@ export const openApiDefinition: OpenAPIDocument = {
     },
   },
   components: {
+    securitySchemes: {
+      bearerAuth: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'Partner access token with "sub", "role" and "exp" claims.',
+      },
+    },
     schemas: {
       CreateVenue: {
         type: 'object',
         required: ['name', 'description', 'location'],
+        description: 'Any extra field, including ownerId, is ignored.',
         properties: {
-          name: { type: 'string' },
-          description: { type: 'string' },
-          location: { type: 'string' },
-          ownerId: { type: 'string', description: 'Optional owner ID accepted by the current service.' },
+          name: { type: 'string', minLength: 1 },
+          description: { type: 'string', minLength: 1 },
+          location: { type: 'string', minLength: 1 },
         },
       },
       Venue: {

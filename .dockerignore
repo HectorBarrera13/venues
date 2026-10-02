@@ -1,0 +1,29 @@
+# Dependencies and build output are installed inside the image
+node_modules
+dist
+coverage
+
+# VCS and tooling metadata
+.git
+.github
+.husky
+.editorconfig
+*.log
+
+# Local secrets: injected at runtime via compose `env_file`, never baked in
+.env
+.env.*
+!.env.example
+
+# Local MongoDB data from the pre-Docker workflow
+.local
+
+# Generated artifact, rebuilt by `npm run openapi:generate`
+openapi.json
+
+# Docs and context: not needed to run the service
+docs
+context
+README.md
+AGENTS.md
+LICENSE
