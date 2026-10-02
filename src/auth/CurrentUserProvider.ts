@@ -1,3 +1,11 @@
+import type { Request } from 'express';
+
+export interface CurrentUser {
+  userId: string;
+  name: string;
+  role: string;
+}
+
 /**
  * Mock user catalogue.
  * One venue_owner and one organizer so both roles can be tested via
@@ -6,9 +14,9 @@
  * Task 19 will centralise these into a shared package used by both
  * CurrentUserProvider (backend) and CurrentUserService (frontend).
  */
-const MOCK_USERS = [
+export const MOCK_USERS: readonly CurrentUser[] = [
   { userId: 'venue-owner-1', name: 'Alex Morgan', role: 'venue_owner' },
-  { userId: 'organizer-1',   name: 'Jordan Lee',  role: 'organizer'   },
+  { userId: 'organizer-1', name: 'Jordan Lee', role: 'organizer' },
 ];
 
 /**
@@ -22,15 +30,13 @@ const MOCK_USERS = [
  *   1. x-mock-user header → look up userId in MOCK_USERS
  *   2. Fallback → first entry in MOCK_USERS (venue_owner)
  */
-class CurrentUserProvider {
+export class CurrentUserProvider {
   /**
    * Return the simulated current user for the given request.
-   *
-   * @param {import('express').Request} req
-   * @returns {{ userId: string, name: string, role: string }}
    */
-  getCurrentUser(req) {
-    const requestedId = req?.headers?.['x-mock-user'];
+  getCurrentUser(req: Request): CurrentUser {
+    const header = req?.headers?.['x-mock-user'];
+    const requestedId = Array.isArray(header) ? header[0] : header;
     if (requestedId) {
       const found = MOCK_USERS.find((u) => u.userId === requestedId);
       if (found) return found;
@@ -39,6 +45,6 @@ class CurrentUserProvider {
   }
 }
 
-const currentUserProvider = new CurrentUserProvider();
+export const currentUserProvider = new CurrentUserProvider();
 
-module.exports = { CurrentUserProvider, currentUserProvider, MOCK_USERS };
+export default currentUserProvider;

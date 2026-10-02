@@ -16,9 +16,10 @@ monorepo.
 ```
 shared/
 └── mocks/
-    ├── index.js        ← Barrel export (punto de entrada recomendado)
-    ├── mockUsers.js    ← Datos y helpers de usuarios mock
-    └── README.md       ← Este archivo
+    ├── index.ts         ← Barrel export (punto de entrada recomendado)
+    ├── mockUsers.ts     ← Datos y helpers de usuarios mock
+    ├── verify.ts        ← Script de verificación (npm run mocks:verify)
+    └── README.md        ← Este archivo
 ```
 
 ## 👥 Usuarios disponibles
@@ -42,11 +43,14 @@ Roles.ADMIN        // → 'admin'
 
 ## 📦 Cómo importar
 
+Los módulos están escritos en TypeScript y usan sintaxis ESM (`export`), compatible
+tanto con el backend (compilado por `tsc` a CommonJS) como con el frontend (Vite).
+No es necesario añadir `"type": "module"` al `package.json`.
+
 ### Desde el Backend (Node.js / Express)
 
-```js
-// Ruta relativa desde backend/src/
-import { MOCK_USERS, Roles, DEFAULT_USERS, getUserById } from '../../shared/mocks/index.js';
+```ts
+import { MOCK_USERS, Roles, DEFAULT_USERS, getUserById } from '../../shared/mocks';
 
 // Uso en CurrentUserProvider
 const currentUser = DEFAULT_USERS.venueOwner;
@@ -54,9 +58,8 @@ const currentUser = DEFAULT_USERS.venueOwner;
 
 ### Desde el Frontend (React / Vite)
 
-```js
-// Ruta relativa desde frontend/src/
-import { MOCK_USERS, Roles, DEFAULT_USERS, getUsersByRole } from '../../shared/mocks/index.js';
+```ts
+import { MOCK_USERS, Roles, DEFAULT_USERS, getUsersByRole } from '../../shared/mocks';
 
 // Uso en CurrentUserService
 const organizers = getUsersByRole(Roles.ORGANIZER);
@@ -76,7 +79,8 @@ const organizers = getUsersByRole(Roles.ORGANIZER);
 ## ⚠️ Notas importantes
 
 - Los datos están **congelados** (`Object.freeze`) para prevenir mutaciones accidentales.
-- Este módulo usa **ES Module syntax** (`export`). El backend debe tener
-  `"type": "module"` en su `package.json` o usar la extensión `.mjs`.
-- Para agregar nuevos usuarios de prueba, edita **únicamente** `mockUsers.js`.
+- Los tipos `Role`, `MockUser` y `DefaultUsers` se exportan también para reutilizarlos
+  en el tipado de frontend y backend.
+- `DEFAULT_USERS` lanza un error si no existe un usuario activo para el rol buscado.
+- Para agregar nuevos usuarios de prueba, edita **únicamente** `mockUsers.ts`.
 - No dupliques estos datos en el frontend o backend; siempre importa desde aquí.

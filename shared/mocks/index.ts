@@ -1,11 +1,9 @@
 /**
- * @module shared/mocks
- * @description
  * Barrel export para todos los datos mock del proyecto Venues.
  * Importar desde aquí simplifica las rutas de acceso.
  *
  * @example
- * // Backend (CommonJS)
+ * // Backend (CommonJS compilado por tsc)
  * const { MOCK_USERS, Roles, DEFAULT_USERS } = require('../../shared/mocks');
  *
  * // Frontend (ESM / Vite)
@@ -19,4 +17,6 @@ export {
   getUserById,
   getUsersByRole,
   getActiveUsers,
-} from './mockUsers.js';
+} from './mockUsers';
+
+export type { Role, MockUser, DefaultUsers } from './mockUsers';

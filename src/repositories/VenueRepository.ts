@@ -1,6 +1,6 @@
-import { PrismaClient, type Venue as PrismaVenue } from '@prisma/client';
-import { prisma } from '../database/prisma';
-import Venue from '../entities/Venue';
+import { PrismaClient, type Venue as PrismaVenue } from "@prisma/client";
+import { prisma } from "../database/prisma";
+import Venue from "../entities/Venue";
 
 export interface VenueStore {
   save(venue: Venue, ownerName?: string): Promise<Venue>;
@@ -16,7 +16,7 @@ export class VenueRepository implements VenueStore {
   constructor(private readonly client: PrismaClient = prisma) {}
 
   async save(venue: Venue, ownerName?: string): Promise<Venue> {
-    if (!venue) throw new Error('Venue cannot be null or undefined');
+    if (!venue) throw new Error("Venue cannot be null or undefined");
 
     await this.client.venueOwner.upsert({
       where: { id: venue.ownerId },
@@ -47,7 +47,7 @@ export class VenueRepository implements VenueStore {
 
   async findAll(): Promise<Venue[]> {
     const records = await this.client.venue.findMany({
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
     return records.map(toDomain);
   }

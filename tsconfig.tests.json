@@ -5,6 +5,6 @@
     "strict": false,
     "types": ["node", "jest"]
   },
-  "include": ["src/**/*", "tests/**/*.ts"],
+  "include": ["src/**/*", "tests/**/*.ts", "shared/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
