@@ -3,14 +3,8 @@ import { venueService, type VenueService, type VenueUser } from '../services/Ven
 
 type VenueRequest = Request & { user?: VenueUser };
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Internal Server Error';
-}
-
-function statusFromError(error: unknown): number {
-  return typeof error === 'object' && error !== null && 'statusCode' in error
-    ? Number(error.statusCode)
-    : 500;
+function render(venue: { toJSON?: () => unknown }): unknown {
+  return typeof venue?.toJSON === 'function' ? venue.toJSON() : venue;
 }
 
 export class VenueController {
@@ -21,36 +15,30 @@ export class VenueController {
     > = venueService
   ) {}
 
-  list = async (_req: Request, res: Response, next?: NextFunction): Promise<Response | void> => {
+  list = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const venues = await this.service.listVenues();
-      return res.status(200).json(venues.map((venue) =>
-        typeof venue?.toJSON === 'function' ? venue.toJSON() : venue
-      ));
+      res.status(200).json(venues.map((venue) => render(venue)));
     } catch (error) {
-      if (next) return next(error);
-      return res.status(500).json({ error: errorMessage(error) });
+      next(error);
     }
   };
 
-  getById = async (req: Request, res: Response, next?: NextFunction): Promise<Response | void> => {
+  getById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const venue = await this.service.getVenueById(String(req.params.id ?? ''));
-      return res.status(200).json(typeof venue?.toJSON === 'function' ? venue.toJSON() : venue);
+      res.status(200).json(render(venue));
     } catch (error) {
-      if (next) return next(error);
-      return res.status(statusFromError(error)).json({ error: errorMessage(error) });
+      next(error);
     }
   };
 
-  create = async (req: VenueRequest, res: Response, next?: NextFunction): Promise<Response | void> => {
+  create = async (req: VenueRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       const venue = await this.service.registerVenue(req.body, req.user);
-      const body = typeof venue?.toJSON === 'function' ? venue.toJSON() : venue;
-      return res.status(201).json(body);
+      res.status(201).json(render(venue));
     } catch (error) {
-      if (next) return next(error);
-      return res.status(statusFromError(error)).json({ error: errorMessage(error) });
+      next(error);
     }
   };
 }

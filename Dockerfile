@@ -43,7 +43,6 @@ RUN npm ci --omit=dev && npm run db:generate
 
 COPY tsconfig.json tsconfig.tests.json ./
 COPY src ./src
-COPY shared ./shared
 COPY scripts ./scripts
 RUN npm run build
 

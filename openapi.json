@@ -413,6 +413,7 @@
       "get": {
         "operationId": "getHealth",
         "summary": "Health check",
+        "description": "Process liveness. Does not reach any dependency.",
         "responses": {
           "200": {
             "description": "Service is healthy",
@@ -420,6 +421,35 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HealthStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "operationId": "getReadiness",
+        "summary": "Readiness check",
+        "description": "Reports whether the venue store is reachable. Answers 503 while it is not.",
+        "responses": {
+          "200": {
+            "description": "Dependencies are reachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessStatus"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Venue store is unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessStatus"
                 }
               }
             }
@@ -514,6 +544,29 @@
           "status": {
             "type": "string",
             "example": "ok"
+          }
+        }
+      },
+      "ReadinessStatus": {
+        "type": "object",
+        "required": [
+          "status",
+          "venueStore"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "not_ready"
+            ]
+          },
+          "venueStore": {
+            "type": "string",
+            "enum": [
+              "up",
+              "down"
+            ]
           }
         }
       }

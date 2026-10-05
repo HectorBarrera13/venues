@@ -158,8 +158,20 @@ export const openApiDefinition: OpenAPIDocument = {
       get: {
         operationId: 'getHealth',
         summary: 'Health check',
+        description: 'Process liveness. Does not reach any dependency.',
         responses: {
           200: jsonResponse('Service is healthy', { $ref: '#/components/schemas/HealthStatus' }),
+        },
+      },
+    },
+    '/ready': {
+      get: {
+        operationId: 'getReadiness',
+        summary: 'Readiness check',
+        description: 'Reports whether the venue store is reachable. Answers 503 while it is not.',
+        responses: {
+          200: jsonResponse('Dependencies are reachable', { $ref: '#/components/schemas/ReadinessStatus' }),
+          503: jsonResponse('Venue store is unreachable', { $ref: '#/components/schemas/ReadinessStatus' }),
         },
       },
     },
@@ -208,6 +220,14 @@ export const openApiDefinition: OpenAPIDocument = {
         required: ['status'],
         properties: {
           status: { type: 'string', example: 'ok' },
+        },
+      },
+      ReadinessStatus: {
+        type: 'object',
+        required: ['status', 'venueStore'],
+        properties: {
+          status: { type: 'string', enum: ['ready', 'not_ready'] },
+          venueStore: { type: 'string', enum: ['up', 'down'] },
         },
       },
     },
