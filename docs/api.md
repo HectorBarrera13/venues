@@ -9,11 +9,26 @@ This document contains detailed contract specifications, sample payloads, and se
 The authoritative OpenAPI 3.0 specification can be found or exported using:
 
 ```bash
-# Export static OpenAPI definition (when configured)
 npm run openapi:generate
 ```
 
-Interactive Swagger UI documentation is available at `/api-docs` when running in development mode.
+The definition lives in [`src/openapi/definition.ts`](../src/openapi/definition.ts) and is written to
+`openapi.json` without starting the server or opening a browser. There is no interactive Swagger UI:
+the committed `openapi.json` is the contract of record for the other teams. CI regenerates it and fails
+if the result differs from the committed file, so the contract cannot drift away from the routes.
+
+### Error format
+
+Every error response, including unmatched routes and CORS rejections, uses a single shape:
+
+```json
+{
+  "error": "Venue \"missing-id\" not found"
+}
+```
+
+The HTTP status carries the meaning: `400` invalid input, `401` missing or invalid token, `403`
+authenticated but role not allowed, `404` unknown route or resource, `500` unexpected failure.
 
 ---
 
@@ -61,7 +76,7 @@ team, and `scripts/make-token` only signs tokens with the shared secret.
 
 ### 3.1 Health Check
 
-Validates service liveness.
+Process liveness. Does not reach any dependency, so it stays `200` even when the venue store is down.
 
 - **Method**: `GET`
 - **Path**: `/health`
@@ -75,7 +90,34 @@ Validates service liveness.
 
 ---
 
-### 3.2 List Venues
+### 3.2 Readiness Check
+
+Dependency readiness. Pings the venue store, so an orchestrator can stop routing traffic to a replica
+that cannot serve requests.
+
+- **Method**: `GET`
+- **Path**: `/ready`
+- **Authentication**: None
+- **Response**: `200 OK` when the venue store answers
+  ```json
+  {
+    "status": "ready",
+    "venueStore": "up"
+  }
+  ```
+- **Response**: `503 Service Unavailable` when the venue store is unreachable
+  ```json
+  {
+    "status": "not_ready",
+    "venueStore": "down"
+  }
+  ```
+
+The probe gives up after 2 seconds, so the response arrives quickly even while the store is unreachable.
+
+---
+
+### 3.3 List Venues
 
 Retrieves the catalogue of all registered venues, from every owner. No caching, no pagination.
 
@@ -86,7 +128,7 @@ Retrieves the catalogue of all registered venues, from every owner. No caching, 
   ```json
   [
     {
-      "id": "1711624800000",
+      "id": "3f7c1b52-9d0e-4a63-8c21-5b6e9a4d2f10",
       "name": "Arena Ciudad de Mexico",
       "description": "Large indoor arena for major concerts and events",
       "location": "Avenida de las Granjas 800, Azcapotzalco, CDMX",
@@ -98,7 +140,7 @@ Retrieves the catalogue of all registered venues, from every owner. No caching, 
 
 ---
 
-### 3.3 Register Venue
+### 3.4 Register Venue
 
 Creates a new physical venue record. The `ownerId` is automatically attributed from the authenticated context.
 
@@ -120,7 +162,7 @@ Creates a new physical venue record. The `ownerId` is automatically attributed f
 - **Response**: `201 Created`
   ```json
   {
-    "id": "1711624950123",
+    "id": "8e2a4d19-77c3-4f50-b6e8-1a9d3c7b5e24",
     "name": "Estadio Azteca",
     "description": "Multi-purpose stadium for sports and mass events",
     "location": "Calzada de Tlalpan 3465, Coyoacan, CDMX",
@@ -140,14 +182,14 @@ Creates a new physical venue record. The `ownerId` is automatically attributed f
 
 ---
 
-### 3.4 Get Venue by ID
+### 3.5 Get Venue by ID
 
 Returns a single venue so the event flow can validate that a venue exists.
 
 - **Method**: `GET`
 - **Path**: `/venues/{id}` (also accessible via `/api/venues/{id}`)
 - **Authentication**: Required (`VENUE_OWNER` or `ORGANIZER`)
-- **Response**: `200 OK` with the venue object (same shape as `3.3`)
+- **Response**: `200 OK` with the venue object (same shape as `3.4`)
 - **Error Responses**:
   - `401 Unauthorized`: Missing or invalid authentication token.
   - `403 Forbidden`: Authenticated role is not a partner role.
@@ -157,3 +199,19 @@ Returns a single venue so the event flow can validate that a venue exists.
       "error": "Venue \"missing-id\" not found"
     }
     ```
+
+---
+
+### 3.6 Unknown Route
+
+Any path that matches no router is answered with the same error shape.
+
+- **Method**: Any
+- **Path**: Any unmatched path
+- **Authentication**: None
+- **Response**: `404 Not Found`
+  ```json
+  {
+    "error": "Route GET /does-not-exist not found"
+  }
+  ```

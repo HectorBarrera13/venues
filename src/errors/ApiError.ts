@@ -1,18 +1,13 @@
+/**
+ * Error carrying the HTTP status the client must observe.
+ * The error response body is rendered exclusively by `src/middleware/errorHandler.ts`.
+ */
 export class ApiError extends Error {
-  statusCode: number;
-  status: number;
+  readonly status: number;
 
-  constructor(statusCodeOrMessage: number | string = 500, messageOrStatusCode: string | number = 'Internal Server Error') {
-    const statusCode = typeof statusCodeOrMessage === 'number'
-      ? statusCodeOrMessage
-      : typeof messageOrStatusCode === 'number' ? messageOrStatusCode : 500;
-    const message = typeof statusCodeOrMessage === 'string'
-      ? statusCodeOrMessage
-      : typeof messageOrStatusCode === 'string' ? messageOrStatusCode : 'Internal Server Error';
-
+  constructor(status = 500, message = 'Internal Server Error') {
     super(message);
-    this.statusCode = statusCode;
-    this.status = statusCode;
+    this.status = status;
     this.name = 'ApiError';
   }
 

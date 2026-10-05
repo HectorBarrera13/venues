@@ -12,6 +12,6 @@
     "skipLibCheck": true,
     "noEmitOnError": true
   },
-  "include": ["src/**/*", "scripts/**/*.ts", "shared/**/*.ts"],
-  "exclude": ["node_modules", "dist", "tests", "shared/mocks/verify.ts"]
+  "include": ["src/**/*", "scripts/**/*.ts"],
+  "exclude": ["node_modules", "dist", "tests"]
 }

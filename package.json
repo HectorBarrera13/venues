@@ -9,7 +9,6 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:check": "tsx scripts/check-database.ts",
-    "mocks:verify": "tsx shared/mocks/verify.ts",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f api",

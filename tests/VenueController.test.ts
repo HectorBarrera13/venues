@@ -57,14 +57,13 @@ describe('VenueController.list (Task 5)', () => {
     expect(next).toHaveBeenCalledWith(error);
   });
 
-  it('should respond with 500 status if error occurs and next is not provided', async () => {
-    const error = new Error('Unexpected crash');
-    mockVenueService.listVenues.mockRejectedValue(error);
+  it('should never render an error response itself, leaving it to the error handler', async () => {
+    mockVenueService.listVenues.mockRejectedValue(new Error('Unexpected crash'));
 
-    await controller.list(req, res);
+    await controller.list(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ error: 'Unexpected crash' });
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).not.toHaveBeenCalled();
   });
 });
 
@@ -144,7 +143,7 @@ describe('VenueController.create (Task 2)', () => {
     expect(res.json).toHaveBeenCalledWith(plainVenue);
   });
 
-  it('should call next with error when registerVenue throws and next is provided', async () => {
+  it('should call next with error when registerVenue throws', async () => {
     const apiError = ApiError.badRequest('Venue name is required');
     mockVenueService.registerVenue.mockRejectedValue(apiError);
 
@@ -155,24 +154,15 @@ describe('VenueController.create (Task 2)', () => {
     expect(res.json).not.toHaveBeenCalled();
   });
 
-  it('should respond with error status when registerVenue throws ApiError and next is not provided', async () => {
-    const apiError = ApiError.forbidden('User does not have venue owner permissions');
-    mockVenueService.registerVenue.mockRejectedValue(apiError);
-
-    await controller.create(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.json).toHaveBeenCalledWith({ error: 'User does not have venue owner permissions' });
-  });
-
-  it('should respond with 500 when registerVenue throws generic error and next is not provided', async () => {
+  it('should delegate generic service errors to the error handler without rendering them', async () => {
     const genericError = new Error('Unexpected database failure');
     mockVenueService.registerVenue.mockRejectedValue(genericError);
 
-    await controller.create(req, res);
+    await controller.create(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ error: 'Unexpected database failure' });
+    expect(next).toHaveBeenCalledWith(genericError);
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).not.toHaveBeenCalled();
   });
 });
 

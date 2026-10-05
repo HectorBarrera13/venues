@@ -40,7 +40,7 @@ describe('VenueService', () => {
       const error = await new VenueService(mockRepository).getVenueById('missing').catch((e) => e);
 
       expect(error).toBeInstanceOf(ApiError);
-      expect(error.statusCode).toBe(404);
+      expect(error.status).toBe(404);
     });
   });
 
@@ -96,7 +96,7 @@ describe('VenueService', () => {
       const error = await service.registerVenue(payload).catch((e) => e);
 
       expect(error).toBeInstanceOf(ApiError);
-      expect(error.statusCode).toBe(403);
+      expect(error.status).toBe(403);
     });
 
     it('should throw 403 when currentUser has no role', async () => {
@@ -110,7 +110,7 @@ describe('VenueService', () => {
       const error = await service.registerVenue(payload, currentUser).catch((e) => e);
 
       expect(error).toBeInstanceOf(ApiError);
-      expect(error.statusCode).toBe(403);
+      expect(error.status).toBe(403);
     });
 
     it('should throw 403 when currentUser is absent even if ownerId supplied in data', async () => {
@@ -123,7 +123,7 @@ describe('VenueService', () => {
       const error = await service.registerVenue(payload).catch((e) => e);
 
       expect(error).toBeInstanceOf(ApiError);
-      expect(error.statusCode).toBe(403);
+      expect(error.status).toBe(403);
     });
 
     it('should throw 403 when currentUser.role is not venue_owner', async () => {
@@ -137,7 +137,7 @@ describe('VenueService', () => {
       const error = await service.registerVenue(payload, nonOwnerUser).catch((e) => e);
 
       expect(error).toBeInstanceOf(ApiError);
-      expect(error.statusCode).toBe(403);
+      expect(error.status).toBe(403);
     });
 
     // ── 400 path ──────────────────────────────────────────────────────────────

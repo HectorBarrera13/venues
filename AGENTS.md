@@ -117,7 +117,7 @@ Examples:
 
 ## 5. Summary Checklist for Every Task
 Before starting and upon concluding any task:
-1. **Did you consult [`context/product/now.md`](./context/product/now.md) to verify the active MVP phase and requirements?** (Never assume past scope!)
+1. **Did you consult [`context/CONTEXT.md`](./context/CONTEXT.md) to verify the active MVP phase and requirements?** (Never assume past scope!)
 2. **Did you verify [`context/architechture/arch.md`](./context/architechture/arch.md) to ensure your changes adhere to container and subdomain boundaries for `venue-service`?**
 3. Did you verify that your changes satisfy the functional and non-functional requirements?
 4. Did you run the stack linter and ensure zero warnings or errors?

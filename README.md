@@ -173,13 +173,15 @@ The venue routes now use `VenueRepository.ts`, which stores records through Pris
 | `npm run db:check` | `tsx scripts/check-database.ts` | Pings MongoDB using `DATABASE_URL` from `.env` |
 | `npm run openapi:generate` | `tsx scripts/generate-openapi.ts` | Generates `openapi.json` without starting the server |
 | `npm run token:make` | `tsx scripts/make-token.ts` | Mints a development access token (`scripts/make-token`) |
-| `npm run mocks:verify` | `tsx shared/mocks/verify.ts` | Validates the shared mock user catalogue |
 
 ---
 
 ## API Reference
 
-Run `npm run openapi:generate` to write the OpenAPI definition to `openapi.json`.
+Run `npm run openapi:generate` to write the OpenAPI definition to `openapi.json`. The file is committed, and CI fails if regenerating it produces a diff, so the contract and the code cannot drift apart.
+
+There is no interactive Swagger UI: the OpenAPI definition is generated headlessly from
+[`src/openapi/definition.ts`](src/openapi/definition.ts) and served as the static `openapi.json`.
 
 Detailed schema definitions, sample request payloads, and response bodies are documented in [docs/api.md](docs/api.md).
 
@@ -195,13 +197,13 @@ venues/
 ├── docs/                 # Detailed architecture and API documentation
 ├── context/              # Ticket D-Saster domain and product roadmap
 ├── scripts/              # Versioning (bump.sh), changelog and make-token tooling
-├── shared/mocks/         # Shared mock user and role test catalogue
 ├── src/
 │   ├── auth/             # JWT contract, verifier and identity resolution
 │   ├── controllers/      # HTTP request handlers (primary adapters)
 │   ├── entities/         # Pure domain entities (Venue)
 │   ├── errors/           # Custom error definitions (ApiError)
-│   ├── middleware/       # Middlewares (auth, role guard, CORS, error handling)
+│   ├── middleware/       # Middlewares (auth, role guard, CORS, error handling, 404)
+│   ├── openapi/          # OpenAPI definition exported to openapi.json
 │   ├── repositories/     # Data access abstractions (secondary adapters)
 │   ├── routes/           # Express router configuration
 │   ├── services/         # Application business logic and use cases
@@ -216,5 +218,4 @@ venues/
 
 - [Architecture & Design](docs/architecture.md)
 - [Detailed API Specification & Contracts](docs/api.md)
-- [Mock User & Role Test Catalogue](shared/mocks/README.md)
 - [Agent & Developer Operational Guidelines](AGENTS.md)
