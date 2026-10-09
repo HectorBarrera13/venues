@@ -16,8 +16,8 @@ jobs:
       id-token: write
 
     env:
-      REGISTRY_HOST: gateway.tail9a6ddlb.ts.net
-      REGISTRY: gateway.tail9a6ddlb.ts.net:5000
+      REGISTRY_HOST: gateway.tail9a6ddb.ts.net
+      REGISTRY: gateway.tail9a6ddb.ts.net:5000
       IMAGE_NAME: subagentes-venue-service
 
     steps:
