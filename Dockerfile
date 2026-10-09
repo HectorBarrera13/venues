@@ -28,8 +28,24 @@ COPY prisma ./prisma
 EXPOSE 3000
 CMD ["npm", "run", "dev"]
 
+# ---------- build ----------
+# Full deps + Prisma client + TS compilation. Never shipped.
+FROM node:22.14.0-alpine AS build
+
+RUN apk add --no-cache openssl libc6-compat
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY prisma ./prisma
+RUN npm ci && npm run db:generate
+
+COPY tsconfig.json tsconfig.tests.json ./
+COPY src ./src
+COPY scripts ./scripts
+RUN npm run build
+
 # ---------- prod ----------
-# Compiled service, no dev dependencies. Consumed by release.yml.
+# Compiled service, production dependencies only. Consumed by release.yml.
 FROM node:22.14.0-alpine AS prod
 
 RUN apk add --no-cache openssl libc6-compat
@@ -39,12 +55,13 @@ ENV NODE_ENV=production
 
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
-RUN npm ci --omit=dev && npm run db:generate
+# --ignore-scripts: the "prepare" (husky) hook needs a dev dependency that
+# --omit=dev excludes; the Prisma client is copied from the build stage instead.
+RUN npm ci --omit=dev --ignore-scripts
 
-COPY tsconfig.json tsconfig.tests.json ./
-COPY src ./src
-COPY scripts ./scripts
-RUN npm run build
+# Generated Prisma client + query engine: not produced by npm ci, copied from build.
+COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=build /app/dist ./dist
 
 USER node
 
