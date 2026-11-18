@@ -254,7 +254,21 @@ Returns a single venue so the event flow can validate that a venue exists.
 
 ---
 
-### 3.6 Unknown Route
+### 3.6 Seat Map (contract stub)
+
+Full format, rules and examples: [`docs/map-format.md`](map-format.md).
+
+| Method | Path | Roles | Answers today | Final contract |
+|---|---|---|---|---|
+| `POST` | `/venues/{id}/map` | `VENUE_OWNER` | `501` (`401`/`403` enforced) | `201`, `400`, `401`, `403`, `404`, `422` |
+| `GET` | `/venues/{id}/map[?version=N]` | `VENUE_OWNER`, `ORGANIZER` | `501` (`400` for a bad `version`, `401`/`403` enforced) | `200`, `400`, `404` |
+
+Both are also mounted under `/api/venues/{id}/map`. The routes exist so clients integrate against the final
+URLs and status codes; the operations are implemented by later tickets. Map bodies may be up to 10 MB.
+
+---
+
+### 3.7 Unknown Route
 
 Any path that matches no router is answered with the same error shape.
 

@@ -643,6 +643,442 @@
         }
       }
     },
+    "/venues/{id}/map": {
+      "post": {
+        "operationId": "saveVenueMap",
+        "summary": "Save a new seat map version",
+        "description": "Stores the payload as version latestMapVersion + 1. Versions are immutable. Requires the VENUE_OWNER role and ownership of the venue. Format: docs/map-format.md. Contract stub: answers 501 until implemented.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Venue identifier.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MapPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Map stored as a new version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapVersion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed payload (types, ranges, ids, limits)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not VENUE_OWNER, or not the owner of this venue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Venue not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The map breaks one or more business rules",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapValidationErrors"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not implemented yet: the route is a contract stub",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getVenueMap",
+        "summary": "Get a seat map version",
+        "description": "Returns the latest version, or the one given in \"version\". Contract stub: answers 501 until implemented.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Venue identifier.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "description": "Map version to read; latest when omitted.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Map version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapVersion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "\"version\" is not a positive integer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated role is not a partner role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Venue not found, venue without map, or unknown version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not implemented yet: the route is a contract stub",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/venues/{id}/map": {
+      "post": {
+        "operationId": "saveVenueMapApi",
+        "summary": "Save a new seat map version",
+        "description": "Stores the payload as version latestMapVersion + 1. Versions are immutable. Requires the VENUE_OWNER role and ownership of the venue. Format: docs/map-format.md. Contract stub: answers 501 until implemented.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Venue identifier.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MapPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Map stored as a new version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapVersion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed payload (types, ranges, ids, limits)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not VENUE_OWNER, or not the owner of this venue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Venue not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The map breaks one or more business rules",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapValidationErrors"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not implemented yet: the route is a contract stub",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "getVenueMapApi",
+        "summary": "Get a seat map version",
+        "description": "Returns the latest version, or the one given in \"version\". Contract stub: answers 501 until implemented.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Venue identifier.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "description": "Map version to read; latest when omitted.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Map version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapVersion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "\"version\" is not a positive integer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated role is not a partner role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Venue not found, venue without map, or unknown version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not implemented yet: the route is a contract stub",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "operationId": "getHealth",
@@ -923,6 +1359,255 @@
           "existingVenueId": {
             "type": "string",
             "description": "Id of the venue already registered with that osmRef."
+          }
+        }
+      },
+      "Point": {
+        "type": "object",
+        "required": [
+          "x",
+          "y"
+        ],
+        "description": "Normalized canvas position, origin top-left. Rounded to 4 decimals.",
+        "properties": {
+          "x": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "y": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      },
+      "Stage": {
+        "type": "object",
+        "required": [
+          "outline"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 100
+          },
+          "outline": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 200,
+            "description": "Simple polygon ring, implicitly closed (do not repeat the first point).",
+            "items": {
+              "$ref": "#/components/schemas/Point"
+            }
+          }
+        }
+      },
+      "Zone": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "outline"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "description": "Unique in the map and stable across versions."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "A blank name is reported as UNNAMED_ZONE (422)."
+          },
+          "outline": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 200,
+            "description": "Simple polygon ring, implicitly closed (do not repeat the first point).",
+            "items": {
+              "$ref": "#/components/schemas/Point"
+            }
+          }
+        }
+      },
+      "Seat": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "row",
+          "zone",
+          "position"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "description": "Unique in the map and stable across versions."
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "example": "12"
+          },
+          "row": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 32,
+            "example": "A"
+          },
+          "zone": {
+            "type": "string",
+            "nullable": true,
+            "description": "Id of the owning zone."
+          },
+          "position": {
+            "$ref": "#/components/schemas/Point"
+          },
+          "rotation": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 360,
+            "exclusiveMaximum": true,
+            "default": 0,
+            "description": "Clockwise rotation in degrees."
+          }
+        }
+      },
+      "MapPayload": {
+        "type": "object",
+        "required": [
+          "stage",
+          "zones",
+          "seats"
+        ],
+        "description": "Seat map as drawn in the editor. Specification: docs/map-format.md.",
+        "properties": {
+          "stage": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Stage"
+              }
+            ],
+            "nullable": true,
+            "description": "null is reported as NO_STAGE (422)."
+          },
+          "zones": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "$ref": "#/components/schemas/Zone"
+            }
+          },
+          "seats": {
+            "type": "array",
+            "maxItems": 50000,
+            "items": {
+              "$ref": "#/components/schemas/Seat"
+            }
+          }
+        }
+      },
+      "MapVersion": {
+        "type": "object",
+        "required": [
+          "venueId",
+          "version",
+          "createdAt",
+          "stage",
+          "zones",
+          "seats"
+        ],
+        "description": "Immutable stored snapshot.",
+        "properties": {
+          "venueId": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stage": {
+            "$ref": "#/components/schemas/Stage"
+          },
+          "zones": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Zone"
+            }
+          },
+          "seats": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Seat"
+            }
+          }
+        }
+      },
+      "MapValidationIssue": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "NO_STAGE",
+              "UNNAMED_ZONE",
+              "EMPTY_ZONE",
+              "SEAT_WITHOUT_ZONE",
+              "DUPLICATE_LABEL",
+              "OVERLAP"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "description": "Display text; not part of the contract."
+          },
+          "seatIds": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "zoneIds": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "MapValidationErrors": {
+        "type": "object",
+        "required": [
+          "error",
+          "errors"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "Map validation failed"
+          },
+          "errors": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Every violation, ordered by code (catalogue order) and then payload order.",
+            "items": {
+              "$ref": "#/components/schemas/MapValidationIssue"
+            }
           }
         }
       },

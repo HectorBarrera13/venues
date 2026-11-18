@@ -92,6 +92,9 @@ export const MAP_LIMITS = {
   maxNameLength: 100,
 } as const;
 
+/** Maximum JSON body accepted by `POST /venues/{id}/map` (enough for MAP_LIMITS.maxSeats seats). */
+export const MAP_BODY_LIMIT = '10mb';
+
 /** Rounds a coordinate to the contract precision (half away from zero). */
 export function roundCoordinate(value: number): number {
   const factor = 10 ** MAP_LIMITS.coordinateDecimals;

@@ -1,3 +1,4 @@
+import { MAP_ERROR_CODES, MAP_LIMITS } from '../maps/mapFormat';
 import { MAX_RADIUS_KM, MAX_TEXT_LENGTH, OSM_REF_PATTERN, PAGINATION } from '../validation/venueInput';
 
 interface PackageManifest {
@@ -12,6 +13,21 @@ const countryCode: JsonSchema = {
   pattern: '^[A-Z]{2}$',
   description: 'ISO 3166-1 alpha-2 country code (lower case is accepted on input).',
   example: 'MX',
+};
+const coordinate: JsonSchema = {
+  type: 'number', minimum: MAP_LIMITS.coordinateMin, maximum: MAP_LIMITS.coordinateMax,
+};
+const outline: JsonSchema = {
+  type: 'array',
+  minItems: MAP_LIMITS.outlineMinPoints,
+  maxItems: MAP_LIMITS.outlineMaxPoints,
+  description: 'Simple polygon ring, implicitly closed (do not repeat the first point).',
+  items: { $ref: '#/components/schemas/Point' },
+};
+const mapId: JsonSchema = {
+  type: 'string',
+  pattern: MAP_LIMITS.idPattern.source,
+  description: 'Unique in the map and stable across versions.',
 };
 const osmRef: JsonSchema = {
   type: 'string',
@@ -135,6 +151,58 @@ const listVenuesParameters: ParameterObject[] = [
 
 const notImplemented = jsonResponse('Not implemented yet: the route is a contract stub', errorRef);
 
+const mapVersionRef: JsonSchema = { $ref: '#/components/schemas/MapVersion' };
+
+function mapOperations(suffix: string): PathItemObject {
+  return {
+    post: {
+      operationId: `saveVenueMap${suffix}`,
+      summary: 'Save a new seat map version',
+      description: 'Stores the payload as version latestMapVersion + 1. Versions are immutable. '
+        + 'Requires the VENUE_OWNER role and ownership of the venue. Format: docs/map-format.md. '
+        + 'Contract stub: answers 501 until implemented.',
+      parameters: [idParameter],
+      security: partnerSecurity,
+      requestBody: {
+        required: true,
+        content: { 'application/json': { schema: { $ref: '#/components/schemas/MapPayload' } } },
+      },
+      responses: {
+        201: jsonResponse('Map stored as a new version', mapVersionRef),
+        400: jsonResponse('Malformed payload (types, ranges, ids, limits)', errorRef),
+        401: jsonResponse('Missing, invalid or expired access token', errorRef),
+        403: jsonResponse('Not VENUE_OWNER, or not the owner of this venue', errorRef),
+        404: jsonResponse('Venue not found', errorRef),
+        422: jsonResponse('The map breaks one or more business rules', {
+          $ref: '#/components/schemas/MapValidationErrors',
+        }),
+        500: jsonResponse('Server error', errorRef),
+        501: notImplemented,
+      },
+    },
+    get: {
+      operationId: `getVenueMap${suffix}`,
+      summary: 'Get a seat map version',
+      description: 'Returns the latest version, or the one given in "version". '
+        + 'Contract stub: answers 501 until implemented.',
+      parameters: [
+        idParameter,
+        queryParameter('version', 'Map version to read; latest when omitted.', { type: 'integer', minimum: 1 }),
+      ],
+      security: partnerSecurity,
+      responses: {
+        200: jsonResponse('Map version', mapVersionRef),
+        400: jsonResponse('"version" is not a positive integer', errorRef),
+        401: jsonResponse('Missing, invalid or expired access token', errorRef),
+        403: jsonResponse('Authenticated role is not a partner role', errorRef),
+        404: jsonResponse('Venue not found, venue without map, or unknown version', errorRef),
+        500: jsonResponse('Server error', errorRef),
+        501: notImplemented,
+      },
+    },
+  };
+}
+
 function venueByIdOperations(suffix: string): PathItemObject {
   return {
     get: {
@@ -207,6 +275,8 @@ export const openApiDefinition: OpenAPIDocument = {
     '/api/venues': venueOperations('Api'),
     '/venues/{id}': venueByIdOperations(''),
     '/api/venues/{id}': venueByIdOperations('Api'),
+    '/venues/{id}/map': mapOperations(''),
+    '/api/venues/{id}/map': mapOperations('Api'),
     '/health': {
       get: {
         operationId: 'getHealth',
@@ -315,6 +385,98 @@ export const openApiDefinition: OpenAPIDocument = {
         properties: {
           error: { type: 'string' },
           existingVenueId: { type: 'string', description: 'Id of the venue already registered with that osmRef.' },
+        },
+      },
+      Point: {
+        type: 'object',
+        required: ['x', 'y'],
+        description: `Normalized canvas position, origin top-left. Rounded to ${MAP_LIMITS.coordinateDecimals} decimals.`,
+        properties: { x: coordinate, y: coordinate },
+      },
+      Stage: {
+        type: 'object',
+        required: ['outline'],
+        properties: {
+          label: { type: 'string', nullable: true, maxLength: MAP_LIMITS.maxNameLength },
+          outline: outline,
+        },
+      },
+      Zone: {
+        type: 'object',
+        required: ['id', 'name', 'outline'],
+        properties: {
+          id: mapId,
+          name: {
+            type: 'string',
+            maxLength: MAP_LIMITS.maxNameLength,
+            description: 'A blank name is reported as UNNAMED_ZONE (422).',
+          },
+          outline: outline,
+        },
+      },
+      Seat: {
+        type: 'object',
+        required: ['id', 'label', 'row', 'zone', 'position'],
+        properties: {
+          id: mapId,
+          label: { type: 'string', minLength: 1, maxLength: MAP_LIMITS.maxLabelLength, example: '12' },
+          row: { type: 'string', nullable: true, maxLength: MAP_LIMITS.maxLabelLength, example: 'A' },
+          zone: { type: 'string', nullable: true, description: 'Id of the owning zone.' },
+          position: { $ref: '#/components/schemas/Point' },
+          rotation: {
+            type: 'number', minimum: 0, maximum: 360, exclusiveMaximum: true, default: 0,
+            description: 'Clockwise rotation in degrees.',
+          },
+        },
+      },
+      MapPayload: {
+        type: 'object',
+        required: ['stage', 'zones', 'seats'],
+        description: 'Seat map as drawn in the editor. Specification: docs/map-format.md.',
+        properties: {
+          stage: {
+            allOf: [{ $ref: '#/components/schemas/Stage' }],
+            nullable: true,
+            description: 'null is reported as NO_STAGE (422).',
+          },
+          zones: { type: 'array', maxItems: MAP_LIMITS.maxZones, items: { $ref: '#/components/schemas/Zone' } },
+          seats: { type: 'array', maxItems: MAP_LIMITS.maxSeats, items: { $ref: '#/components/schemas/Seat' } },
+        },
+      },
+      MapVersion: {
+        type: 'object',
+        required: ['venueId', 'version', 'createdAt', 'stage', 'zones', 'seats'],
+        description: 'Immutable stored snapshot.',
+        properties: {
+          venueId: { type: 'string' },
+          version: { type: 'integer', minimum: 1 },
+          createdAt: { type: 'string', format: 'date-time' },
+          stage: { $ref: '#/components/schemas/Stage' },
+          zones: { type: 'array', items: { $ref: '#/components/schemas/Zone' } },
+          seats: { type: 'array', items: { $ref: '#/components/schemas/Seat' } },
+        },
+      },
+      MapValidationIssue: {
+        type: 'object',
+        required: ['code', 'message'],
+        properties: {
+          code: { type: 'string', enum: [...MAP_ERROR_CODES] },
+          message: { type: 'string', description: 'Display text; not part of the contract.' },
+          seatIds: { type: 'array', minItems: 1, items: { type: 'string' } },
+          zoneIds: { type: 'array', minItems: 1, items: { type: 'string' } },
+        },
+      },
+      MapValidationErrors: {
+        type: 'object',
+        required: ['error', 'errors'],
+        properties: {
+          error: { type: 'string', example: 'Map validation failed' },
+          errors: {
+            type: 'array',
+            minItems: 1,
+            description: 'Every violation, ordered by code (catalogue order) and then payload order.',
+            items: { $ref: '#/components/schemas/MapValidationIssue' },
+          },
         },
       },
       Error: {
