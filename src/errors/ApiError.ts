@@ -1,3 +1,5 @@
+import type { FieldError } from '../entities/Venue';
+
 /** Extra top-level fields rendered next to `error`, e.g. `existingVenueId` or `errors`. */
 export type ApiErrorDetails = Record<string, unknown>;
 
@@ -19,6 +21,15 @@ export class ApiError extends Error {
 
   static badRequest(message = 'Bad Request'): ApiError {
     return new ApiError(400, message);
+  }
+
+  /**
+   * 400 listing every invalid field. `field`/`message` repeat the first error so clients
+   * that bind a single field (the Backstage form) keep working; `errors` has all of them.
+   */
+  static validation(errors: FieldError[], message = 'Invalid venue data'): ApiError {
+    const [first] = errors;
+    return new ApiError(400, message, { field: first?.field, message: first?.message, errors });
   }
 
   static unauthorized(message = 'Unauthorized'): ApiError {

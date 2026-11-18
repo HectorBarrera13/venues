@@ -1,4 +1,4 @@
-import Venue, { fromGeoPoint, normalizeVenueName, toGeoPoint } from '../src/entities/Venue';
+import Venue, { fromGeoPoint, normalizeVenueName, toGeoPoint, VenueValidationError } from '../src/entities/Venue';
 import { buildVenue } from './helpers/venues';
 
 describe('Venue entity', () => {
@@ -40,6 +40,48 @@ describe('Venue entity', () => {
   it('normalizes accents, case and punctuation', () => {
     expect(normalizeVenueName("L'Olympia Bruno Coquatrix")).toBe('l olympia bruno coquatrix');
     expect(normalizeVenueName('ÁRENA   CDMX')).toBe('arena cdmx');
+  });
+
+  it('turns "Sála" into "sala" and is idempotent', () => {
+    expect(normalizeVenueName('  Sála ')).toBe('sala');
+    expect(normalizeVenueName('SALA')).toBe('sala');
+    for (const name of ['Sála Riviera', '  ÁRENA   CDMX', "L'Olympia"]) {
+      expect(normalizeVenueName(normalizeVenueName(name))).toBe(normalizeVenueName(name));
+    }
+  });
+
+  describe('domain validation', () => {
+    function errorsOf(build: () => unknown) {
+      try {
+        build();
+      } catch (error) {
+        expect(error).toBeInstanceOf(VenueValidationError);
+        return (error as VenueValidationError).errors.map((e) => e.field);
+      }
+      throw new Error('expected the constructor to throw');
+    }
+
+    it.each([
+      [{ lat: 95, lng: 0 }, ['lat']],
+      [{ lat: 0, lng: 181 }, ['lng']],
+      [{ lat: -91, lng: -181 }, ['lat', 'lng']],
+    ])('rejects out-of-range location %j', (location, fields) => {
+      expect(errorsOf(() => buildVenue({ location }))).toEqual(fields);
+    });
+
+    it('accepts the coordinate limits', () => {
+      expect(() => buildVenue({ location: { lat: 90, lng: -180 } })).not.toThrow();
+    });
+
+    it('normalizes "es" to "ES" and rejects non ISO alpha-2 codes', () => {
+      expect(buildVenue({ country: 'es' }).country).toBe('ES');
+      expect(errorsOf(() => buildVenue({ country: 'ESPA' }))).toEqual(['country']);
+      expect(errorsOf(() => buildVenue({ country: 'XX' }))).toEqual(['country']);
+    });
+
+    it.each(['name', 'address', 'city', 'country'] as const)('names the empty required field %s', (field) => {
+      expect(errorsOf(() => buildVenue({ [field]: ' ' }))).toEqual([field]);
+    });
   });
 
   describe('belongsTo', () => {

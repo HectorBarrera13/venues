@@ -178,11 +178,11 @@
             }
           },
           "400": {
-            "description": "Invalid venue data",
+            "description": "Invalid venue data; every invalid field is listed",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/VenueValidationError"
                 }
               }
             }
@@ -208,7 +208,7 @@
             }
           },
           "409": {
-            "description": "A venue with the same osmRef is already registered",
+            "description": "The venue is already registered (same osmRef, or same normalized name at the same coordinates)",
             "content": {
               "application/json": {
                 "schema": {
@@ -403,11 +403,11 @@
             }
           },
           "400": {
-            "description": "Invalid venue data",
+            "description": "Invalid venue data; every invalid field is listed",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/VenueValidationError"
                 }
               }
             }
@@ -433,7 +433,7 @@
             }
           },
           "409": {
-            "description": "A venue with the same osmRef is already registered",
+            "description": "The venue is already registered (same osmRef, or same normalized name at the same coordinates)",
             "content": {
               "application/json": {
                 "schema": {
@@ -1317,7 +1317,7 @@
           },
           "existingVenueId": {
             "type": "string",
-            "description": "Id of the venue already registered with that osmRef."
+            "description": "Id of the venue already registered."
           }
         }
       },
@@ -1566,6 +1566,53 @@
             "description": "Every violation, ordered by code (catalogue order) and then payload order.",
             "items": {
               "$ref": "#/components/schemas/MapValidationIssue"
+            }
+          }
+        }
+      },
+      "FieldError": {
+        "type": "object",
+        "required": [
+          "field",
+          "message"
+        ],
+        "properties": {
+          "field": {
+            "type": "string",
+            "description": "Body field as the client sends it; location coordinates are reported as \"lat\" / \"lng\".",
+            "example": "country"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "VenueValidationError": {
+        "type": "object",
+        "required": [
+          "error",
+          "field",
+          "message",
+          "errors"
+        ],
+        "description": "\"field\" and \"message\" repeat the first entry of \"errors\".",
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "Invalid venue data"
+          },
+          "field": {
+            "type": "string",
+            "example": "country"
+          },
+          "message": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
             }
           }
         }

@@ -1,4 +1,4 @@
-import type { GeoLocation } from '../entities/Venue';
+import { isIsoCountryCode, validateVenueProps, type FieldError, type GeoLocation } from '../entities/Venue';
 import ApiError from '../errors/ApiError';
 
 /** Validated body of `POST /venues`. The owner always comes from the access token. */
@@ -33,15 +33,7 @@ export const MAX_RADIUS_KM = 500;
 export const MAX_TEXT_LENGTH = 200;
 export const OSM_REF_PATTERN = /^(node|way|relation):[1-9]\d*$/;
 
-const regionNames = new Intl.DisplayNames(['en'], { type: 'region', fallback: 'code' });
-
-/** True for an assigned ISO 3166-1 alpha-2 code (case-insensitive). */
-export function isIsoCountryCode(value: string): boolean {
-  if (!/^[A-Za-z]{2}$/.test(value)) return false;
-  const code = value.toUpperCase();
-  // ZZ is the CLDR "Unknown Region"; unassigned codes resolve to themselves.
-  return code !== 'ZZ' && regionNames.of(code) !== code;
-}
+export { isIsoCountryCode };
 
 type Source = Record<string, unknown>;
 
@@ -49,18 +41,19 @@ function asSource(value: unknown): Source {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Source) : {};
 }
 
-function text(source: Source, field: string, required: true): string;
-function text(source: Source, field: string, required: false): string | null;
-function text(source: Source, field: string, required: boolean): string | null {
+/** Reads an optional text field; records a type/length problem and returns null when invalid. */
+function text(source: Source, field: string, errors: FieldError[]): string | null {
   const value = source[field];
-  if (value === undefined || value === null || (typeof value === 'string' && !value.trim())) {
-    if (required) throw ApiError.badRequest(`Field "${field}" is required`);
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'string') {
+    errors.push({ field, message: `Field "${field}" must be a string` });
     return null;
   }
-  if (typeof value !== 'string') throw ApiError.badRequest(`Field "${field}" must be a string`);
   const trimmed = value.trim();
+  if (!trimmed) return null;
   if (trimmed.length > MAX_TEXT_LENGTH) {
-    throw ApiError.badRequest(`Field "${field}" must be at most ${MAX_TEXT_LENGTH} characters`);
+    errors.push({ field, message: `Field "${field}" must be at most ${MAX_TEXT_LENGTH} characters` });
+    return null;
   }
   return trimmed;
 }
@@ -79,39 +72,63 @@ function coordinate(value: unknown, field: string, limit: number): number {
   return value;
 }
 
+/**
+ * Validates the whole `POST /venues` body and reports every invalid field at once
+ * as a 400 `{ error, field, message, errors }`.
+ */
 export function parseCreateVenue(body: unknown): CreateVenueCommand {
   const source = asSource(body);
+  const errors: FieldError[] = [];
 
-  const name = text(source, 'name', true);
-  const description = text(source, 'description', false);
-  const address = text(source, 'address', true);
-  const city = text(source, 'city', true);
-  const countryCode = country(text(source, 'country', true), 'country');
+  const name = text(source, 'name', errors);
+  const description = text(source, 'description', errors);
+  const address = text(source, 'address', errors);
+  const city = text(source, 'city', errors);
+  const countryCode = text(source, 'country', errors);
 
-  if (source.location === undefined || source.location === null) {
-    throw ApiError.badRequest('Field "location" is required');
+  let location: Partial<GeoLocation> | undefined;
+  if (source.location !== undefined && source.location !== null) {
+    if (typeof source.location !== 'object' || Array.isArray(source.location)) {
+      errors.push({ field: 'location', message: 'Field "location" must be an object with "lat" and "lng"' });
+    } else {
+      const raw = asSource(source.location);
+      location = { lat: raw.lat as number, lng: raw.lng as number };
+    }
   }
-  if (typeof source.location !== 'object' || Array.isArray(source.location)) {
-    throw ApiError.badRequest('Field "location" must be an object with "lat" and "lng"');
-  }
-  const rawLocation = asSource(source.location);
-  const location: GeoLocation = {
-    lat: coordinate(rawLocation.lat, 'location.lat', 90),
-    lng: coordinate(rawLocation.lng, 'location.lng', 180),
-  };
 
-  const externalId = text(source, 'externalId', false);
-  const externalSource = text(source, 'externalSource', false);
+  const typeErrorFields = new Set(errors.map((error) => error.field));
+  for (const error of validateVenueProps({
+    name: name ?? '', address: address ?? '', city: city ?? '', country: countryCode ?? '',
+    location: location as GeoLocation | undefined,
+  })) {
+    // A field already reported for its type/length is not reported again as missing.
+    if (!typeErrorFields.has(error.field)) errors.push(error);
+  }
+
+  const externalId = text(source, 'externalId', errors);
+  const externalSource = text(source, 'externalSource', errors);
   if (externalId && !externalSource) {
-    throw ApiError.badRequest('Field "externalSource" is required when "externalId" is present');
+    errors.push({ field: 'externalSource', message: 'Field "externalSource" is required when "externalId" is present' });
   }
 
-  const osmRef = text(source, 'osmRef', false);
+  const osmRef = text(source, 'osmRef', errors);
   if (osmRef && !OSM_REF_PATTERN.test(osmRef)) {
-    throw ApiError.badRequest('Field "osmRef" must look like "node:123", "way:123" or "relation:123"');
+    errors.push({ field: 'osmRef', message: 'Field "osmRef" must look like "node:123", "way:123" or "relation:123"' });
   }
 
-  return { name, description, address, city, country: countryCode, location, externalId, externalSource, osmRef };
+  if (errors.length > 0) throw ApiError.validation(errors);
+
+  return {
+    name: name as string,
+    description,
+    address: address as string,
+    city: city as string,
+    country: (countryCode as string).toUpperCase(),
+    location: location as GeoLocation,
+    externalId,
+    externalSource,
+    osmRef,
+  };
 }
 
 function queryValue(query: Source, field: string): string | undefined {

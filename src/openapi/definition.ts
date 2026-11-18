@@ -103,6 +103,7 @@ export interface OpenAPIDocument {
 const venueRef: JsonSchema = { $ref: '#/components/schemas/Venue' };
 const errorRef: JsonSchema = { $ref: '#/components/schemas/Error' };
 const conflictRef: JsonSchema = { $ref: '#/components/schemas/VenueConflict' };
+const venueValidationRef: JsonSchema = { $ref: '#/components/schemas/VenueValidationError' };
 const partnerSecurity: Record<string, string[]>[] = [{ bearerAuth: [] }];
 
 const idParameter: ParameterObject = {
@@ -253,10 +254,10 @@ function venueOperations(suffix: string): PathItemObject {
       },
       responses: {
         201: jsonResponse('Created venue', venueRef),
-        400: jsonResponse('Invalid venue data', errorRef),
+        400: jsonResponse('Invalid venue data; every invalid field is listed', venueValidationRef),
         401: jsonResponse('Missing, invalid or expired access token', errorRef),
         403: jsonResponse('Authenticated role is not VENUE_OWNER', errorRef),
-        409: jsonResponse('A venue with the same osmRef is already registered', conflictRef),
+        409: jsonResponse('The venue is already registered (same osmRef, or same normalized name at the same coordinates)', conflictRef),
         500: jsonResponse('Server error', errorRef),
       },
     },
@@ -398,7 +399,7 @@ export const openApiDefinition: OpenAPIDocument = {
         required: ['error', 'existingVenueId'],
         properties: {
           error: { type: 'string' },
-          existingVenueId: { type: 'string', description: 'Id of the venue already registered with that osmRef.' },
+          existingVenueId: { type: 'string', description: 'Id of the venue already registered.' },
         },
       },
       Point: {
@@ -491,6 +492,29 @@ export const openApiDefinition: OpenAPIDocument = {
             description: 'Every violation, ordered by code (catalogue order) and then payload order.',
             items: { $ref: '#/components/schemas/MapValidationIssue' },
           },
+        },
+      },
+      FieldError: {
+        type: 'object',
+        required: ['field', 'message'],
+        properties: {
+          field: {
+            type: 'string',
+            description: 'Body field as the client sends it; location coordinates are reported as "lat" / "lng".',
+            example: 'country',
+          },
+          message: { type: 'string' },
+        },
+      },
+      VenueValidationError: {
+        type: 'object',
+        required: ['error', 'field', 'message', 'errors'],
+        description: '"field" and "message" repeat the first entry of "errors".',
+        properties: {
+          error: { type: 'string', example: 'Invalid venue data' },
+          field: { type: 'string', example: 'country' },
+          message: { type: 'string' },
+          errors: { type: 'array', minItems: 1, items: { $ref: '#/components/schemas/FieldError' } },
         },
       },
       Error: {

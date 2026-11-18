@@ -100,4 +100,18 @@ describe('VenueRepository', () => {
     client.venue.findFirst.mockResolvedValue(null);
     await expect(repository.findByOsmRef('node:1')).resolves.toBeNull();
   });
+
+  describe('findDuplicate', () => {
+    it('queries by normalized name and matches coordinates rounded to 4 decimals', async () => {
+      const venue = await repository.findDuplicate({ nameNormalized: 'auditorio nacional', lat: 19.42452, lng: -99.19508 });
+
+      expect(client.venue.findMany).toHaveBeenCalledWith({ where: { nameNormalized: 'auditorio nacional' } });
+      expect(venue?.id).toBe('venue-1');
+    });
+
+    it('does not match the same name at a different position', async () => {
+      await expect(repository.findDuplicate({ nameNormalized: 'auditorio nacional', lat: 19.4246, lng: -99.1951 }))
+        .resolves.toBeNull();
+    });
+  });
 });

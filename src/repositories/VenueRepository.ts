@@ -15,6 +15,21 @@ export interface VenuePage {
   total: number;
 }
 
+/** Identity of a venue without an OpenStreetMap reference: normalized name + position. */
+export interface VenueIdentity {
+  nameNormalized: string;
+  lat: number;
+  lng: number;
+}
+
+/** Decimals compared by the fallback dedupe (4 decimals is about 11 m). */
+export const DEDUPE_COORDINATE_DECIMALS = 4;
+
+export function roundCoordinate(value: number): number {
+  const factor = 10 ** DEDUPE_COORDINATE_DECIMALS;
+  return Math.round(value * factor) / factor;
+}
+
 export interface VenueSearchRequest extends PageRequest {
   filters: VenueSearchFilters;
 }
@@ -35,6 +50,7 @@ export interface VenueStore {
   search(request: VenueSearchRequest): Promise<VenueSearchPage>;
   findById(id: string): Promise<Venue | null>;
   findByOsmRef(osmRef: string): Promise<Venue | null>;
+  findDuplicate(identity: VenueIdentity): Promise<Venue | null>;
 }
 
 const DIACRITIC_CLASSES: Record<string, string> = {
@@ -295,6 +311,17 @@ export class VenueRepository implements VenueStore {
   async findByOsmRef(osmRef: string): Promise<Venue | null> {
     const record = await this.client.venue.findFirst({ where: { osmRef } });
     return record ? toDomain(record) : null;
+  }
+
+  /** Venue with the same normalized name whose coordinates match after rounding to 4 decimals. */
+  async findDuplicate({ nameNormalized, lat, lng }: VenueIdentity): Promise<Venue | null> {
+    const records = await this.client.venue.findMany({ where: { nameNormalized } });
+    const [targetLat, targetLng] = [roundCoordinate(lat), roundCoordinate(lng)];
+    const match = records.find((record) => {
+      const location = fromGeoPoint(record.location);
+      return roundCoordinate(location.lat) === targetLat && roundCoordinate(location.lng) === targetLng;
+    });
+    return match ? toDomain(match) : null;
   }
 }
 
