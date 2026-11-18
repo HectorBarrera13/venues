@@ -3,22 +3,11 @@ import { AUTH_CONFIG, normalizeRole } from '../auth/authConfig';
 import Venue from '../entities/Venue';
 import ApiError from '../errors/ApiError';
 import { venueRepository, type VenueStore } from '../repositories/VenueRepository';
-import { parseCreateVenue, parseListVenuesQuery } from '../validation/venueInput';
+import { parseCreateVenue } from '../validation/venueInput';
+import { VenueSearchService, type Paginated, type Pagination } from './VenueSearchService';
 
 export type VenueUser = AuthenticatedUser;
-
-export interface Pagination {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-}
-
-/** Paginated list shape shared by every collection endpoint: `{ data, pagination }`. */
-export interface Paginated<T> {
-  data: T[];
-  pagination: Pagination;
-}
+export type { Paginated, Pagination };
 
 /** Prisma reports a unique index violation (including raw MongoDB indexes) as P2002. */
 function isUniqueViolation(error: unknown): boolean {
@@ -33,27 +22,22 @@ function duplicateVenue(existing: Venue): ApiError {
 }
 
 export class VenueService {
-  constructor(private readonly repository: VenueStore = venueRepository) {}
+  private readonly searchService: VenueSearchService;
+
+  constructor(private readonly repository: VenueStore = venueRepository) {
+    this.searchService = new VenueSearchService(repository);
+  }
 
   async listVenues(rawQuery?: unknown): Promise<Paginated<Venue>> {
-    const { page, limit, filters } = parseListVenuesQuery(rawQuery);
-    if (Object.keys(filters).length > 0) {
-      throw ApiError.notImplemented('Venue search filters are not implemented yet');
-    }
-
-    const { items, total } = await this.repository.findPage({ skip: (page - 1) * limit, take: limit });
+    const { data, pagination } = await this.searchService.searchVenues(rawQuery);
     return {
-      data: items,
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      data: data.map((hit) => hit.venue),
+      pagination,
     };
   }
 
   async getVenueById(id: string): Promise<Venue> {
-    const venue = await this.repository.findById(id);
-    if (!venue) {
-      throw ApiError.notFound(`Venue "${id}" not found`);
-    }
-    return venue;
+    return this.searchService.getVenueById(id);
   }
 
   async venueExists(id: string): Promise<boolean> {

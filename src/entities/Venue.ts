@@ -123,6 +123,26 @@ export function fromGeoPoint(point: { coordinates: number[] }): GeoLocation {
   return { lat, lng };
 }
 
+const EARTH_RADIUS_KM = 6371.0088;
+
+/** Rounds kilometres to two decimal places (used by geospatial search results). */
+export function roundDistanceKm(distanceKm: number): number {
+  return Math.round(distanceKm * 100) / 100 || 0;
+}
+
+/** Great-circle distance between two WGS84 points in kilometres. */
+export function haversineDistanceKm(from: GeoLocation, to: GeoLocation): number {
+  const toRadians = (degrees: number): number => (degrees * Math.PI) / 180;
+  const dLat = toRadians(to.lat - from.lat);
+  const dLng = toRadians(to.lng - from.lng);
+  const sinLat = Math.sin(dLat / 2);
+  const sinLng = Math.sin(dLng / 2);
+  const h =
+    sinLat * sinLat +
+    Math.cos(toRadians(from.lat)) * Math.cos(toRadians(to.lat)) * sinLng * sinLng;
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
 export default class Venue {
   readonly id: string;
   readonly name: string;

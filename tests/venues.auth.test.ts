@@ -26,6 +26,7 @@ function token(
 
 const ownerToken = (sub = 'owner-1') => token(roles.VENUE_OWNER, sub);
 const organizerToken = (sub = 'organizer-1') => token(roles.ORGANIZER, sub);
+const fanToken = (sub = 'fan-1') => token('FAN', sub);
 
 /** Rewrites the payload of a token while keeping its original signature. */
 function tamper(tokenValue: string, mutate: (payload: Record<string, unknown>) => void): string {
@@ -44,10 +45,13 @@ describe('Venues API authentication and authorization', () => {
       stored.push(venue);
       return venue;
     });
-    jest.spyOn(venueRepository, 'findPage').mockImplementation(async ({ skip, take }) => ({
-      items: stored.slice(skip, skip + take),
-      total: stored.length,
-    }));
+    jest.spyOn(venueRepository, 'findPage').mockImplementation(async ({ skip, take }) => {
+      const mapped = stored.filter((venue) => venue.latestMapVersion >= 1);
+      return {
+        items: mapped.slice(skip, skip + take),
+        total: mapped.length,
+      };
+    });
     jest.spyOn(venueRepository, 'findByOsmRef').mockImplementation(
       async (osmRef: string) => stored.find((venue) => venue.osmRef === osmRef) ?? null
     );
@@ -236,29 +240,63 @@ describe('Venues API authentication and authorization', () => {
   });
 
   describe('GET /venues', () => {
-    it('lists venues of every owner right after they are created', async () => {
-      await request(app)
+    it('excludes unmapped venues and lists mapped venues of every owner for any authenticated role', async () => {
+      const createdA = await request(app)
         .post('/venues')
         .set('Authorization', `Bearer ${ownerToken('owner-a')}`)
         .send({ ...validPayload, name: 'Auditorio A' })
         .expect(201);
 
-      await request(app)
+      const createdB = await request(app)
         .post('/venues')
         .set('Authorization', `Bearer ${ownerToken('owner-b')}`)
         .send({ ...validPayload, name: 'Auditorio B' })
         .expect(201);
 
-      const response = await request(app)
+      // Before any map is saved (latestMapVersion === 0), neither appears in C5 listing.
+      const beforeMap = await request(app)
         .get('/venues')
         .set('Authorization', `Bearer ${organizerToken('organizer-9')}`)
         .expect(200);
+      expect(beforeMap.body).toEqual({
+        data: [],
+        pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+      });
 
-      expect(response.body.pagination.total).toBe(2);
-      expect(response.body.data.map((venue: { ownerId: string }) => venue.ownerId).sort()).toEqual([
-        'owner-a',
-        'owner-b',
-      ]);
+      stored = stored.map((venue) =>
+        venue.id === createdA.body.id || venue.id === createdB.body.id
+          ? new Venue({ ...venue.toJSON(), latestMapVersion: 1 })
+          : venue
+      );
+
+      for (const jwtToken of [organizerToken('organizer-9'), fanToken('fan-5')]) {
+        const response = await request(app)
+          .get('/venues')
+          .set('Authorization', `Bearer ${jwtToken}`)
+          .expect(200);
+
+        expect(response.body.pagination.total).toBe(2);
+        expect(response.body.data.map((venue: { ownerId: string }) => venue.ownerId).sort()).toEqual([
+          'owner-a',
+          'owner-b',
+        ]);
+      }
+    });
+
+    it('rejects non-owner write attempts (POST /venues and POST /venues/:id/map) with 403', async () => {
+      for (const jwtToken of [organizerToken('organizer-7'), fanToken('fan-5')]) {
+        await request(app)
+          .post('/venues')
+          .set('Authorization', `Bearer ${jwtToken}`)
+          .send(validPayload)
+          .expect(403);
+
+        await request(app)
+          .post('/venues/venue-1/map')
+          .set('Authorization', `Bearer ${jwtToken}`)
+          .send({ stage: null, zones: [], seats: [] })
+          .expect(403);
+      }
     });
 
     it('returns 401 without a token', async () => {
@@ -276,19 +314,22 @@ describe('Venues API authentication and authorization', () => {
   });
 
   describe('GET /venues/:id', () => {
-    it('returns the venue when it exists', async () => {
+    it('returns the venue (even with latestMapVersion 0) for any authenticated role', async () => {
       const created = await request(app)
         .post('/venues')
         .set('Authorization', `Bearer ${ownerToken('owner-42')}`)
         .send(validPayload)
         .expect(201);
 
-      const response = await request(app)
-        .get(`/venues/${created.body.id}`)
-        .set('Authorization', `Bearer ${organizerToken('organizer-9')}`)
-        .expect(200);
+      for (const jwtToken of [organizerToken('organizer-9'), fanToken('fan-5')]) {
+        const response = await request(app)
+          .get(`/venues/${created.body.id}`)
+          .set('Authorization', `Bearer ${jwtToken}`)
+          .expect(200);
 
-      expect(response.body).toEqual(created.body);
+        expect(response.body).toEqual(created.body);
+        expect(response.body.latestMapVersion).toBe(0);
+      }
     });
 
     it('returns 404 for an unknown venue', async () => {

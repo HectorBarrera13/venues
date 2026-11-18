@@ -63,11 +63,27 @@ describe('GET /venues', () => {
     expect(response.body.error).toContain('radius_km');
   });
 
-  it('answers 501 for search filters until search is implemented', async () => {
-    await request(app)
+  it('delegates search filters to venueRepository.search and returns 200', async () => {
+    const venue = buildVenue({ id: 'v-mty', city: 'Monterrey', country: 'MX', latestMapVersion: 1 });
+    const search = jest.spyOn(venueRepository, 'search').mockResolvedValue({
+      items: [{ venue }],
+      total: 1,
+    });
+
+    const response = await request(app)
       .get('/venues?country=MX&city=Monterrey')
       .set('Authorization', ORGANIZER_AUTHORIZATION)
-      .expect(501);
+      .expect(200);
+
+    expect(search).toHaveBeenCalledWith({
+      skip: 0,
+      take: 20,
+      filters: { country: 'MX', city: 'Monterrey' },
+    });
+    expect(response.body).toEqual({
+      data: [venue.toJSON()],
+      pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+    });
   });
 
   it('also responds at /api/venues for frontend proxy compatibility', async () => {

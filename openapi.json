@@ -9,7 +9,7 @@
       "get": {
         "operationId": "listVenues",
         "summary": "List and search venues",
-        "description": "Paginated by creation date. Search filters (lat/lng/radius_km, country, city, name) are validated and documented here; until search is implemented a request using any of them answers 501.",
+        "description": "Paginated search across venues with at least one saved map version (latestMapVersion >= 1). Available to any authenticated user. Geospatial queries (lat, lng, radius_km) sort ascending by distance and include distance_km rounded to two decimal places.",
         "parameters": [
           {
             "name": "page",
@@ -116,7 +116,7 @@
             }
           },
           "400": {
-            "description": "Invalid pagination or filter parameters",
+            "description": "Invalid pagination, filter parameters, or coordinates/radius",
             "content": {
               "application/json": {
                 "schema": {
@@ -135,28 +135,8 @@
               }
             }
           },
-          "403": {
-            "description": "Authenticated role is not a partner role",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
           "500": {
             "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not implemented yet: the route is a contract stub",
             "content": {
               "application/json": {
                 "schema": {
@@ -254,7 +234,7 @@
       "get": {
         "operationId": "listVenuesApi",
         "summary": "List and search venues",
-        "description": "Paginated by creation date. Search filters (lat/lng/radius_km, country, city, name) are validated and documented here; until search is implemented a request using any of them answers 501.",
+        "description": "Paginated search across venues with at least one saved map version (latestMapVersion >= 1). Available to any authenticated user. Geospatial queries (lat, lng, radius_km) sort ascending by distance and include distance_km rounded to two decimal places.",
         "parameters": [
           {
             "name": "page",
@@ -361,7 +341,7 @@
             }
           },
           "400": {
-            "description": "Invalid pagination or filter parameters",
+            "description": "Invalid pagination, filter parameters, or coordinates/radius",
             "content": {
               "application/json": {
                 "schema": {
@@ -380,28 +360,8 @@
               }
             }
           },
-          "403": {
-            "description": "Authenticated role is not a partner role",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
           "500": {
             "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not implemented yet: the route is a contract stub",
             "content": {
               "application/json": {
                 "schema": {
@@ -499,6 +459,7 @@
       "get": {
         "operationId": "getVenueById",
         "summary": "Get a venue by ID",
+        "description": "Available to any authenticated user. Returns the venue record including latestMapVersion without map geometry.",
         "parameters": [
           {
             "name": "id",
@@ -528,16 +489,6 @@
           },
           "401": {
             "description": "Missing, invalid or expired access token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Authenticated role is not a partner role",
             "content": {
               "application/json": {
                 "schema": {
@@ -573,6 +524,7 @@
       "get": {
         "operationId": "getVenueByIdApi",
         "summary": "Get a venue by ID",
+        "description": "Available to any authenticated user. Returns the venue record including latestMapVersion without map geometry.",
         "parameters": [
           {
             "name": "id",
@@ -602,16 +554,6 @@
           },
           "401": {
             "description": "Missing, invalid or expired access token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Authenticated role is not a partner role",
             "content": {
               "application/json": {
                 "schema": {
@@ -1328,6 +1270,23 @@
           }
         }
       },
+      "VenueSearchItem": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Venue"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "distance_km": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Distance in kilometres from the search centre (rounded to 2 decimals). Present only on geospatial searches."
+              }
+            }
+          }
+        ]
+      },
       "VenuePage": {
         "type": "object",
         "required": [
@@ -1338,7 +1297,7 @@
           "data": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/Venue"
+              "$ref": "#/components/schemas/VenueSearchItem"
             }
           },
           "pagination": {
