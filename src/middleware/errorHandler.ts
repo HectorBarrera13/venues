@@ -1,4 +1,5 @@
 import type { ErrorRequestHandler } from 'express';
+import { VenueValidationError } from '../entities/Venue';
 import ApiError, { type ApiErrorDetails } from '../errors/ApiError';
 
 export interface HttpError {
@@ -14,6 +15,10 @@ export interface HttpError {
  * degrades to 500 without leaking internals.
  */
 export function toHttpError(error: unknown): HttpError {
+  if (error instanceof VenueValidationError) {
+    return toHttpError(ApiError.validation(error.errors));
+  }
+
   if (error instanceof ApiError) {
     return error.details
       ? { status: error.status, message: error.message, details: error.details }
