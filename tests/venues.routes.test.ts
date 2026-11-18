@@ -1,16 +1,16 @@
-const jwt = require('jsonwebtoken');
-const request = require('supertest');
-const app = require('../src/app').default;
-const { venueRepository } = require('../src/repositories/VenueRepository');
-const { venueService } = require('../src/services/VenueService');
-const Venue = require('../src/entities/Venue').default;
-const ApiError = require('../src/errors/ApiError').default;
-const { AUTH_CONFIG } = require('../src/auth/authConfig');
+import jwt from 'jsonwebtoken';
+import request from 'supertest';
+import app from '../src/app';
+import { AUTH_CONFIG } from '../src/auth/authConfig';
+import ApiError from '../src/errors/ApiError';
+import { venueRepository } from '../src/repositories/VenueRepository';
+import { venueService } from '../src/services/VenueService';
+import { buildVenue, validVenuePayload } from './helpers/venues';
 
 const TEST_SECRET = 'integration-test-secret';
 process.env.JWT_SECRET = TEST_SECRET;
 
-function authToken(role) {
+function authToken(role: string): string {
   return `Bearer ${jwt.sign({ [AUTH_CONFIG.claims.role]: role }, TEST_SECRET, {
     algorithm: AUTH_CONFIG.algorithm,
     subject: 'route-test-user',
@@ -21,46 +21,13 @@ function authToken(role) {
 const OWNER_AUTHORIZATION = authToken(AUTH_CONFIG.roles.VENUE_OWNER);
 const ORGANIZER_AUTHORIZATION = authToken(AUTH_CONFIG.roles.ORGANIZER);
 
-describe('GET /venues Route Integration (Task 5)', () => {
-  let findAllSpy;
+afterEach(() => {
+  jest.restoreAllMocks();
+});
 
-  beforeEach(() => {
-    findAllSpy = jest.spyOn(venueRepository, 'findAll').mockResolvedValue([]);
-  });
-
-  afterEach(() => {
-    findAllSpy.mockRestore();
-  });
-
-  it('should return 200 with an empty array when no venues exist', async () => {
-    const response = await request(app)
-      .get('/venues')
-      .set('Authorization', ORGANIZER_AUTHORIZATION)
-      .expect('Content-Type', /json/)
-      .expect(200);
-
-    expect(response.body).toEqual([]);
-  });
-
-  it('should return 200 with all venues using toJSON() serialization', async () => {
-    const v1 = new Venue({
-      id: 'v-101',
-      name: 'Auditorio Nacional',
-      description: 'Concert hall',
-      location: 'Paseo de la Reforma',
-      ownerId: 'owner-1',
-      createdAt: '2026-03-01T12:00:00.000Z',
-    });
-    const v2 = new Venue({
-      id: 'v-102',
-      name: 'Foro Sol',
-      description: 'Stadium',
-      location: 'Iztacalco',
-      ownerId: 'owner-2',
-      createdAt: '2026-03-02T12:00:00.000Z',
-    });
-
-    findAllSpy.mockResolvedValue([v1, v2]);
+describe('GET /venues', () => {
+  it('returns an empty page when no venues exist', async () => {
+    jest.spyOn(venueRepository, 'findPage').mockResolvedValue({ items: [], total: 0 });
 
     const response = await request(app)
       .get('/venues')
@@ -68,146 +35,103 @@ describe('GET /venues Route Integration (Task 5)', () => {
       .expect('Content-Type', /json/)
       .expect(200);
 
-    expect(response.body).toHaveLength(2);
-    expect(response.body).toEqual([
-      {
-        id: 'v-101',
-        name: 'Auditorio Nacional',
-        description: 'Concert hall',
-        location: 'Paseo de la Reforma',
-        ownerId: 'owner-1',
-        createdAt: '2026-03-01T12:00:00.000Z',
-      },
-      {
-        id: 'v-102',
-        name: 'Foro Sol',
-        description: 'Stadium',
-        location: 'Iztacalco',
-        ownerId: 'owner-2',
-        createdAt: '2026-03-02T12:00:00.000Z',
-      },
-    ]);
+    expect(response.body).toEqual({ data: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } });
   });
 
-  it('should also respond at /api/venues for frontend proxy compatibility', async () => {
+  it('serializes each venue of the requested page', async () => {
+    const venues = [buildVenue({ id: 'v-101' }), buildVenue({ id: 'v-102', name: 'Foro Sol' })];
+    const findPage = jest.spyOn(venueRepository, 'findPage').mockResolvedValue({ items: venues, total: 4 });
+
     const response = await request(app)
-      .get('/api/venues')
+      .get('/venues?page=2&limit=2')
       .set('Authorization', ORGANIZER_AUTHORIZATION)
       .expect(200);
 
-    expect(response.body).toEqual([]);
+    expect(findPage).toHaveBeenCalledWith({ skip: 2, take: 2 });
+    expect(response.body).toEqual({
+      data: venues.map((venue) => venue.toJSON()),
+      pagination: { page: 2, limit: 2, total: 4, totalPages: 2 },
+    });
+  });
+
+  it('answers 400 for invalid query parameters', async () => {
+    const response = await request(app)
+      .get('/venues?lat=19.4')
+      .set('Authorization', ORGANIZER_AUTHORIZATION)
+      .expect(400);
+
+    expect(response.body.error).toContain('radius_km');
+  });
+
+  it('answers 501 for search filters until search is implemented', async () => {
+    await request(app)
+      .get('/venues?country=MX&city=Monterrey')
+      .set('Authorization', ORGANIZER_AUTHORIZATION)
+      .expect(501);
+  });
+
+  it('also responds at /api/venues for frontend proxy compatibility', async () => {
+    jest.spyOn(venueRepository, 'findPage').mockResolvedValue({ items: [], total: 0 });
+
+    const response = await request(app).get('/api/venues').set('Authorization', ORGANIZER_AUTHORIZATION).expect(200);
+
+    expect(response.body.data).toEqual([]);
   });
 });
 
-describe('POST /venues Route Integration (Task 2 & 7)', () => {
-  let registerVenueSpy;
-
-  afterEach(() => {
-    if (registerVenueSpy) {
-      registerVenueSpy.mockRestore();
-    }
-  });
-
-  it('should return 201 with serialized venue JSON when created successfully', async () => {
-    const mockCreatedVenue = new Venue({
-      id: 'venue-999',
-      name: 'Arena CDMX',
-      description: 'Major venue',
-      location: 'Azcapotzalco',
-      ownerId: 'owner-123',
-      createdAt: '2026-09-18T12:00:00.000Z',
-    });
-
-    registerVenueSpy = jest.spyOn(venueService, 'registerVenue').mockResolvedValue(mockCreatedVenue);
-
-    const payload = {
-      name: 'Arena CDMX',
-      description: 'Major venue',
-      location: 'Azcapotzalco',
-    };
+describe('POST /venues', () => {
+  it('returns 201 with the serialized venue', async () => {
+    const created = buildVenue({ id: 'venue-999' });
+    jest.spyOn(venueService, 'registerVenue').mockResolvedValue(created);
 
     const response = await request(app)
       .post('/venues')
       .set('Authorization', OWNER_AUTHORIZATION)
-      .send(payload)
+      .send(validVenuePayload)
       .expect('Content-Type', /json/)
       .expect(201);
 
+    expect(response.body).toEqual(created.toJSON());
+  });
+
+  it('returns 409 with existingVenueId for a duplicate osmRef', async () => {
+    jest.spyOn(venueService, 'registerVenue').mockRejectedValue(
+      ApiError.conflict('A venue with osmRef "way:42" already exists', { existingVenueId: 'venue-1' })
+    );
+
+    const response = await request(app)
+      .post('/venues')
+      .set('Authorization', OWNER_AUTHORIZATION)
+      .send({ ...validVenuePayload, osmRef: 'way:42' })
+      .expect(409);
+
     expect(response.body).toEqual({
-      id: 'venue-999',
-      name: 'Arena CDMX',
-      description: 'Major venue',
-      location: 'Azcapotzalco',
-      ownerId: 'owner-123',
-      createdAt: '2026-09-18T12:00:00.000Z',
+      error: 'A venue with osmRef "way:42" already exists',
+      existingVenueId: 'venue-1',
     });
   });
 
-  it('should return 400 when registerVenue throws ApiError.badRequest', async () => {
-    registerVenueSpy = jest
-      .spyOn(venueService, 'registerVenue')
-      .mockRejectedValue(ApiError.badRequest('Name is required'));
+  it('returns 500 when registration fails unexpectedly', async () => {
+    jest.spyOn(venueService, 'registerVenue').mockRejectedValue(new Error('Database disconnected'));
 
     const response = await request(app)
       .post('/venues')
       .set('Authorization', OWNER_AUTHORIZATION)
-      .send({})
-      .expect('Content-Type', /json/)
-      .expect(400);
-
-    expect(response.body).toEqual({ error: 'Name is required' });
-  });
-
-  it('should return 403 when registerVenue throws ApiError.forbidden', async () => {
-    registerVenueSpy = jest
-      .spyOn(venueService, 'registerVenue')
-      .mockRejectedValue(ApiError.forbidden('Venue owner required'));
-
-    const response = await request(app)
-      .post('/venues')
-      .set('Authorization', OWNER_AUTHORIZATION)
-      .send({ name: 'Secret Club' })
-      .expect('Content-Type', /json/)
-      .expect(403);
-
-    expect(response.body).toEqual({ error: 'Venue owner required' });
-  });
-
-  it('should return 500 when registerVenue throws generic error', async () => {
-    registerVenueSpy = jest
-      .spyOn(venueService, 'registerVenue')
-      .mockRejectedValue(new Error('Database disconnected'));
-
-    const response = await request(app)
-      .post('/venues')
-      .set('Authorization', OWNER_AUTHORIZATION)
-      .send({ name: 'Club' })
-      .expect('Content-Type', /json/)
+      .send(validVenuePayload)
       .expect(500);
 
     expect(response.body).toEqual({ error: 'Database disconnected' });
   });
 
-  it('should also respond at /api/venues for frontend proxy compatibility', async () => {
-    const mockCreatedVenue = new Venue({
-      id: 'venue-proxy',
-      name: 'Teatro Metropolitan',
-      description: 'Art deco theatre',
-      location: 'Centro',
-      ownerId: 'owner-proxy',
-      createdAt: '2026-09-18T12:00:00.000Z',
-    });
-
-    registerVenueSpy = jest.spyOn(venueService, 'registerVenue').mockResolvedValue(mockCreatedVenue);
+  it('also responds at /api/venues for frontend proxy compatibility', async () => {
+    jest.spyOn(venueService, 'registerVenue').mockResolvedValue(buildVenue({ id: 'venue-proxy' }));
 
     const response = await request(app)
       .post('/api/venues')
       .set('Authorization', OWNER_AUTHORIZATION)
-      .send({ name: 'Teatro Metropolitan' })
+      .send(validVenuePayload)
       .expect(201);
 
     expect(response.body.id).toBe('venue-proxy');
   });
 });
-
-export {};

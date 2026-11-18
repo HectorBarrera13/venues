@@ -1,24 +1,22 @@
 import type { NextFunction, Request, Response } from 'express';
+import type Venue from '../entities/Venue';
 import { venueService, type VenueService, type VenueUser } from '../services/VenueService';
 
 type VenueRequest = Request & { user?: VenueUser };
 
-function render(venue: { toJSON?: () => unknown }): unknown {
-  return typeof venue?.toJSON === 'function' ? venue.toJSON() : venue;
+function render(venue: Venue): unknown {
+  return venue.toJSON();
 }
 
 export class VenueController {
   constructor(
-    private readonly service: Pick<
-      VenueService,
-      'listVenues' | 'registerVenue' | 'getVenueById'
-    > = venueService
+    private readonly service: Pick<VenueService, 'listVenues' | 'registerVenue' | 'getVenueById'> = venueService
   ) {}
 
-  list = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+  list = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const venues = await this.service.listVenues();
-      res.status(200).json(venues.map((venue) => render(venue)));
+      const { data, pagination } = await this.service.listVenues(req.query);
+      res.status(200).json({ data: data.map(render), pagination });
     } catch (error) {
       next(error);
     }

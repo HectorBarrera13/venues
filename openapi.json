@@ -8,7 +8,97 @@
     "/venues": {
       "get": {
         "operationId": "listVenues",
-        "summary": "List venues",
+        "summary": "List and search venues",
+        "description": "Paginated by creation date. Search filters (lat/lng/radius_km, country, city, name) are validated and documented here; until search is implemented a request using any of them answers 501.",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "Page number, starting at 1.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "lat",
+            "in": "query",
+            "required": false,
+            "description": "Latitude of the search centre (WGS84). Requires lng and radius_km.",
+            "schema": {
+              "type": "number",
+              "minimum": -90,
+              "maximum": 90
+            }
+          },
+          {
+            "name": "lng",
+            "in": "query",
+            "required": false,
+            "description": "Longitude of the search centre (WGS84). Requires lat and radius_km.",
+            "schema": {
+              "type": "number",
+              "minimum": -180,
+              "maximum": 180
+            }
+          },
+          {
+            "name": "radius_km",
+            "in": "query",
+            "required": false,
+            "description": "Search radius in kilometres. Requires lat and lng.",
+            "schema": {
+              "type": "number",
+              "exclusiveMinimum": true,
+              "minimum": 0,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "description": "ISO 3166-1 alpha-2 country code.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z]{2}$"
+            }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "required": false,
+            "description": "City, matched case- and accent-insensitively.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "description": "Venue name fragment, matched case- and accent-insensitively.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -16,14 +106,21 @@
         ],
         "responses": {
           "200": {
-            "description": "Registered venues",
+            "description": "One page of venues",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Venue"
-                  }
+                  "$ref": "#/components/schemas/VenuePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid pagination or filter parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -50,6 +147,16 @@
           },
           "500": {
             "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not implemented yet: the route is a contract stub",
             "content": {
               "application/json": {
                 "schema": {
@@ -120,6 +227,16 @@
               }
             }
           },
+          "409": {
+            "description": "A venue with the same osmRef is already registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VenueConflict"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Server error",
             "content": {
@@ -136,7 +253,97 @@
     "/api/venues": {
       "get": {
         "operationId": "listVenuesApi",
-        "summary": "List venues",
+        "summary": "List and search venues",
+        "description": "Paginated by creation date. Search filters (lat/lng/radius_km, country, city, name) are validated and documented here; until search is implemented a request using any of them answers 501.",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "Page number, starting at 1.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "lat",
+            "in": "query",
+            "required": false,
+            "description": "Latitude of the search centre (WGS84). Requires lng and radius_km.",
+            "schema": {
+              "type": "number",
+              "minimum": -90,
+              "maximum": 90
+            }
+          },
+          {
+            "name": "lng",
+            "in": "query",
+            "required": false,
+            "description": "Longitude of the search centre (WGS84). Requires lat and radius_km.",
+            "schema": {
+              "type": "number",
+              "minimum": -180,
+              "maximum": 180
+            }
+          },
+          {
+            "name": "radius_km",
+            "in": "query",
+            "required": false,
+            "description": "Search radius in kilometres. Requires lat and lng.",
+            "schema": {
+              "type": "number",
+              "exclusiveMinimum": true,
+              "minimum": 0,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "description": "ISO 3166-1 alpha-2 country code.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z]{2}$"
+            }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "required": false,
+            "description": "City, matched case- and accent-insensitively.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "description": "Venue name fragment, matched case- and accent-insensitively.",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
         "security": [
           {
             "bearerAuth": []
@@ -144,14 +351,21 @@
         ],
         "responses": {
           "200": {
-            "description": "Registered venues",
+            "description": "One page of venues",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Venue"
-                  }
+                  "$ref": "#/components/schemas/VenuePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid pagination or filter parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -178,6 +392,16 @@
           },
           "500": {
             "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not implemented yet: the route is a contract stub",
             "content": {
               "application/json": {
                 "schema": {
@@ -244,6 +468,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A venue with the same osmRef is already registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VenueConflict"
                 }
               }
             }
@@ -468,26 +702,92 @@
       }
     },
     "schemas": {
+      "GeoLocation": {
+        "type": "object",
+        "required": [
+          "lat",
+          "lng"
+        ],
+        "description": "WGS84 position. Stored as a GeoJSON Point ([lng, lat]).",
+        "properties": {
+          "lat": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90,
+            "example": 19.4245
+          },
+          "lng": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180,
+            "example": -99.1951
+          }
+        }
+      },
       "CreateVenue": {
         "type": "object",
         "required": [
           "name",
-          "description",
+          "address",
+          "city",
+          "country",
           "location"
         ],
-        "description": "Any extra field, including ownerId, is ignored.",
+        "description": "Text fields are trimmed. Any other field, including ownerId, is ignored: the owner is the token subject.",
         "properties": {
           "name": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 200,
+            "example": "Auditorio Nacional"
           },
           "description": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 200,
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "example": "Paseo de la Reforma 50"
+          },
+          "city": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "example": "Ciudad de Mexico"
+          },
+          "country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$",
+            "description": "ISO 3166-1 alpha-2 country code (lower case is accepted on input).",
+            "example": "MX"
           },
           "location": {
+            "$ref": "#/components/schemas/GeoLocation"
+          },
+          "externalId": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 200,
+            "nullable": true,
+            "description": "Id of the venue in externalSource. Requires externalSource."
+          },
+          "externalSource": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "nullable": true,
+            "example": "nominatim"
+          },
+          "osmRef": {
+            "type": "string",
+            "nullable": true,
+            "pattern": "^(node|way|relation):[1-9]\\d*$",
+            "description": "OpenStreetMap reference. Unique among venues when present.",
+            "example": "way:123456"
           }
         }
       },
@@ -497,7 +797,14 @@
           "id",
           "name",
           "description",
+          "address",
+          "city",
+          "country",
           "location",
+          "externalId",
+          "externalSource",
+          "osmRef",
+          "latestMapVersion",
           "ownerId",
           "createdAt"
         ],
@@ -510,10 +817,43 @@
             "type": "string"
           },
           "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
             "type": "string"
           },
-          "location": {
+          "city": {
             "type": "string"
+          },
+          "country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$",
+            "description": "ISO 3166-1 alpha-2 country code (lower case is accepted on input).",
+            "example": "MX"
+          },
+          "location": {
+            "$ref": "#/components/schemas/GeoLocation"
+          },
+          "externalId": {
+            "type": "string",
+            "nullable": true
+          },
+          "externalSource": {
+            "type": "string",
+            "nullable": true
+          },
+          "osmRef": {
+            "type": "string",
+            "nullable": true,
+            "pattern": "^(node|way|relation):[1-9]\\d*$",
+            "description": "OpenStreetMap reference. Unique among venues when present.",
+            "example": "way:123456"
+          },
+          "latestMapVersion": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Highest stored map version; 0 while the venue has no map."
           },
           "ownerId": {
             "type": "string"
@@ -521,6 +861,68 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "required": [
+          "page",
+          "limit",
+          "total",
+          "totalPages"
+        ],
+        "properties": {
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "totalPages": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "VenuePage": {
+        "type": "object",
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Venue"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        }
+      },
+      "VenueConflict": {
+        "type": "object",
+        "required": [
+          "error",
+          "existingVenueId"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "existingVenueId": {
+            "type": "string",
+            "description": "Id of the venue already registered with that osmRef."
           }
         }
       },

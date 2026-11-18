@@ -7,6 +7,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Indexes the Prisma MongoDB connector cannot declare are created by
+// scripts/ensure-indexes.ts, which `npm run db:push` runs right after
+// `prisma db push`:
+//   - venues.location  -> 2dsphere
+//   - venues.osmRef    -> unique, partial on { osmRef: { $type: "string" } }
+//     (a plain Prisma @unique would also index missing values and reject the
+//     second venue registered without an OpenStreetMap reference).
+
+/// GeoJSON Point in WGS84. `coordinates` is [longitude, latitude].
+type GeoPoint {
+  type        String  @default("Point")
+  coordinates Float[]
+}
+
 model VenueOwner {
   id     String  @id @map("_id")
   name   String
@@ -16,36 +30,48 @@ model VenueOwner {
 }
 
 model Venue {
-  id          String     @id @default(uuid()) @map("_id")
-  name        String
-  description String     @map("desc")
-  location    String
-  ownerId     String
-  owner       VenueOwner @relation(fields: [ownerId], references: [id])
-  zones       Zone[]
-  createdAt   DateTime   @default(now())
+  id               String       @id @default(uuid()) @map("_id")
+  name             String
+  /// Lower-case, accent-free, whitespace-collapsed copy of `name` for search and dedupe.
+  nameNormalized   String
+  description      String?
+  address          String
+  city             String
+  /// ISO 3166-1 alpha-2, upper case.
+  country          String
+  location         GeoPoint
+  /// Identifier of the venue in `externalSource` (e.g. a Nominatim place_id).
+  externalId       String?
+  /// Geocoder the venue was resolved with, e.g. "nominatim".
+  externalSource   String?
+  /// OpenStreetMap reference "<node|way|relation>:<id>", unique when present.
+  osmRef           String?
+  /// Highest MapVersion.version stored for this venue; 0 means no map yet.
+  latestMapVersion Int          @default(0)
+  ownerId          String
+  owner            VenueOwner   @relation(fields: [ownerId], references: [id])
+  mapVersions      MapVersion[]
+  createdAt        DateTime     @default(now())
 
+  @@index([country, city])
+  @@index([latestMapVersion])
+  @@index([nameNormalized])
   @@index([ownerId])
   @@map("venues")
 }
 
-model Zone {
-  id      String @id @default(uuid()) @map("_id")
-  venueId String
-  venue   Venue  @relation(fields: [venueId], references: [id])
-  name    String
-  seats   Seat[]
+/// Immutable snapshot of a venue seat map. A new version is inserted on every
+/// save; existing versions are never updated. Payload format: docs/map-format.md.
+model MapVersion {
+  id        String   @id @default(uuid()) @map("_id")
+  venueId   String
+  venue     Venue    @relation(fields: [venueId], references: [id])
+  version   Int
+  stage     Json
+  zones     Json
+  seats     Json
+  createdAt DateTime @default(now())
 
-  @@unique([venueId, name])
-  @@map("zones")
-}
-
-model Seat {
-  id     String @id @default(uuid()) @map("_id")
-  zoneId String
-  zone   Zone   @relation(fields: [zoneId], references: [id])
-  number String
-
-  @@unique([zoneId, number])
-  @@map("seats")
+  @@unique([venueId, version])
+  @@map("map_versions")
 }

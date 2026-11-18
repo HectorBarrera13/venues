@@ -1,8 +1,25 @@
+import { MAX_RADIUS_KM, MAX_TEXT_LENGTH, OSM_REF_PATTERN, PAGINATION } from '../validation/venueInput';
+
 interface PackageManifest {
   version: string;
 }
 
 const { version } = require('../../package.json') as PackageManifest;
+
+const text: JsonSchema = { type: 'string', minLength: 1, maxLength: MAX_TEXT_LENGTH };
+const countryCode: JsonSchema = {
+  type: 'string',
+  pattern: '^[A-Z]{2}$',
+  description: 'ISO 3166-1 alpha-2 country code (lower case is accepted on input).',
+  example: 'MX',
+};
+const osmRef: JsonSchema = {
+  type: 'string',
+  nullable: true,
+  pattern: OSM_REF_PATTERN.source,
+  description: 'OpenStreetMap reference. Unique among venues when present.',
+  example: 'way:123456',
+};
 
 export type JsonSchema = Record<string, unknown>;
 
@@ -69,6 +86,7 @@ export interface OpenAPIDocument {
 
 const venueRef: JsonSchema = { $ref: '#/components/schemas/Venue' };
 const errorRef: JsonSchema = { $ref: '#/components/schemas/Error' };
+const conflictRef: JsonSchema = { $ref: '#/components/schemas/VenueConflict' };
 const partnerSecurity: Record<string, string[]>[] = [{ bearerAuth: [] }];
 
 const idParameter: ParameterObject = {
@@ -87,6 +105,35 @@ function jsonResponse(description: string, schema: JsonSchema): ResponseObject {
     },
   };
 }
+
+function queryParameter(name: string, description: string, schema: JsonSchema): ParameterObject {
+  return { name, in: 'query', required: false, description, schema };
+}
+
+const listVenuesParameters: ParameterObject[] = [
+  queryParameter('page', 'Page number, starting at 1.', {
+    type: 'integer', minimum: 1, default: PAGINATION.defaultPage,
+  }),
+  queryParameter('limit', 'Page size.', {
+    type: 'integer', minimum: 1, maximum: PAGINATION.maxLimit, default: PAGINATION.defaultLimit,
+  }),
+  queryParameter('lat', 'Latitude of the search centre (WGS84). Requires lng and radius_km.', {
+    type: 'number', minimum: -90, maximum: 90,
+  }),
+  queryParameter('lng', 'Longitude of the search centre (WGS84). Requires lat and radius_km.', {
+    type: 'number', minimum: -180, maximum: 180,
+  }),
+  queryParameter('radius_km', 'Search radius in kilometres. Requires lat and lng.', {
+    type: 'number', exclusiveMinimum: true, minimum: 0, maximum: MAX_RADIUS_KM,
+  }),
+  queryParameter('country', 'ISO 3166-1 alpha-2 country code.', { type: 'string', pattern: '^[A-Za-z]{2}$' }),
+  queryParameter('city', 'City, matched case- and accent-insensitively.', { type: 'string', minLength: 1 }),
+  queryParameter('name', 'Venue name fragment, matched case- and accent-insensitively.', {
+    type: 'string', minLength: 1,
+  }),
+];
+
+const notImplemented = jsonResponse('Not implemented yet: the route is a contract stub', errorRef);
 
 function venueByIdOperations(suffix: string): PathItemObject {
   return {
@@ -110,13 +157,18 @@ function venueOperations(suffix: string): PathItemObject {
   return {
     get: {
       operationId: `listVenues${suffix}`,
-      summary: 'List venues',
+      summary: 'List and search venues',
+      description: 'Paginated by creation date. Search filters (lat/lng/radius_km, country, city, name) are '
+        + 'validated and documented here; until search is implemented a request using any of them answers 501.',
+      parameters: listVenuesParameters,
       security: partnerSecurity,
       responses: {
-        200: jsonResponse('Registered venues', { type: 'array', items: venueRef }),
+        200: jsonResponse('One page of venues', { $ref: '#/components/schemas/VenuePage' }),
+        400: jsonResponse('Invalid pagination or filter parameters', errorRef),
         401: jsonResponse('Missing, invalid or expired access token', errorRef),
         403: jsonResponse('Authenticated role is not a partner role', errorRef),
         500: jsonResponse('Server error', errorRef),
+        501: notImplemented,
       },
     },
     post: {
@@ -137,6 +189,7 @@ function venueOperations(suffix: string): PathItemObject {
         400: jsonResponse('Invalid venue data', errorRef),
         401: jsonResponse('Missing, invalid or expired access token', errorRef),
         403: jsonResponse('Authenticated role is not VENUE_OWNER', errorRef),
+        409: jsonResponse('A venue with the same osmRef is already registered', conflictRef),
         500: jsonResponse('Server error', errorRef),
       },
     },
@@ -186,26 +239,82 @@ export const openApiDefinition: OpenAPIDocument = {
       },
     },
     schemas: {
+      GeoLocation: {
+        type: 'object',
+        required: ['lat', 'lng'],
+        description: 'WGS84 position. Stored as a GeoJSON Point ([lng, lat]).',
+        properties: {
+          lat: { type: 'number', minimum: -90, maximum: 90, example: 19.4245 },
+          lng: { type: 'number', minimum: -180, maximum: 180, example: -99.1951 },
+        },
+      },
       CreateVenue: {
         type: 'object',
-        required: ['name', 'description', 'location'],
-        description: 'Any extra field, including ownerId, is ignored.',
+        required: ['name', 'address', 'city', 'country', 'location'],
+        description: 'Text fields are trimmed. Any other field, including ownerId, is ignored: '
+          + 'the owner is the token subject.',
         properties: {
-          name: { type: 'string', minLength: 1 },
-          description: { type: 'string', minLength: 1 },
-          location: { type: 'string', minLength: 1 },
+          name: { ...text, example: 'Auditorio Nacional' },
+          description: { ...text, nullable: true },
+          address: { ...text, example: 'Paseo de la Reforma 50' },
+          city: { ...text, example: 'Ciudad de Mexico' },
+          country: countryCode,
+          location: { $ref: '#/components/schemas/GeoLocation' },
+          externalId: { ...text, nullable: true, description: 'Id of the venue in externalSource. Requires externalSource.' },
+          externalSource: { ...text, nullable: true, example: 'nominatim' },
+          osmRef: osmRef,
         },
       },
       Venue: {
         type: 'object',
-        required: ['id', 'name', 'description', 'location', 'ownerId', 'createdAt'],
+        required: [
+          'id', 'name', 'description', 'address', 'city', 'country', 'location',
+          'externalId', 'externalSource', 'osmRef', 'latestMapVersion', 'ownerId', 'createdAt',
+        ],
         properties: {
           id: { type: 'string', format: 'uuid' },
           name: { type: 'string' },
-          description: { type: 'string' },
-          location: { type: 'string' },
+          description: { type: 'string', nullable: true },
+          address: { type: 'string' },
+          city: { type: 'string' },
+          country: countryCode,
+          location: { $ref: '#/components/schemas/GeoLocation' },
+          externalId: { type: 'string', nullable: true },
+          externalSource: { type: 'string', nullable: true },
+          osmRef: osmRef,
+          latestMapVersion: {
+            type: 'integer',
+            minimum: 0,
+            description: 'Highest stored map version; 0 while the venue has no map.',
+          },
           ownerId: { type: 'string' },
           createdAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      Pagination: {
+        type: 'object',
+        required: ['page', 'limit', 'total', 'totalPages'],
+        properties: {
+          page: { type: 'integer', minimum: 1 },
+          limit: { type: 'integer', minimum: 1, maximum: PAGINATION.maxLimit },
+          total: { type: 'integer', minimum: 0 },
+          totalPages: { type: 'integer', minimum: 0 },
+        },
+      },
+      VenuePage: {
+        type: 'object',
+        required: ['data', 'pagination'],
+        properties: {
+          data: { type: 'array', items: venueRef },
+          pagination: { $ref: '#/components/schemas/Pagination' },
+        },
+      },
+      VenueConflict: {
+        type: 'object',
+        required: ['error', 'existingVenueId'],
+        properties: {
+          error: { type: 'string' },
+          existingVenueId: { type: 'string', description: 'Id of the venue already registered with that osmRef.' },
         },
       },
       Error: {

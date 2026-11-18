@@ -1,43 +1,72 @@
 import { VenueService } from '../src/services/VenueService';
 import Venue from '../src/entities/Venue';
 import ApiError from '../src/errors/ApiError';
+import { buildVenue, validVenuePayload } from './helpers/venues';
+
+const owner = { userId: 'user-789', role: 'venue_owner', name: 'Alex' };
+
+function mockRepository() {
+  return {
+    save: jest.fn(async (venue: Venue) => venue),
+    findPage: jest.fn(),
+    findById: jest.fn(),
+    findByOsmRef: jest.fn().mockResolvedValue(null),
+  };
+}
 
 describe('VenueService', () => {
+  let repository: ReturnType<typeof mockRepository>;
+  let service: VenueService;
+
+  beforeEach(() => {
+    repository = mockRepository();
+    service = new VenueService(repository);
+  });
+
   describe('listVenues', () => {
-    it('should call venueRepository.findAll when listVenues is called', async () => {
-      const mockVenues = [
-        { id: 'v-1', name: 'Venue 1' },
-        { id: 'v-2', name: 'Venue 2' },
-      ];
-      const mockRepository = {
-        findAll: jest.fn().mockResolvedValue(mockVenues),
-        save: jest.fn(),
-        findById: jest.fn(),
-      };
+    it('returns the first page with pagination metadata by default', async () => {
+      const venues = [buildVenue()];
+      repository.findPage.mockResolvedValue({ items: venues, total: 45 });
 
-      const service = new VenueService(mockRepository);
-      const result = await service.listVenues();
+      const result = await service.listVenues({});
 
-      expect(mockRepository.findAll).toHaveBeenCalledTimes(1);
-      expect(result).toBe(mockVenues);
+      expect(repository.findPage).toHaveBeenCalledWith({ skip: 0, take: 20 });
+      expect(result).toEqual({ data: venues, pagination: { page: 1, limit: 20, total: 45, totalPages: 3 } });
+    });
+
+    it('translates page and limit into skip and take', async () => {
+      repository.findPage.mockResolvedValue({ items: [], total: 0 });
+
+      const result = await service.listVenues({ page: '3', limit: '10' });
+
+      expect(repository.findPage).toHaveBeenCalledWith({ skip: 20, take: 10 });
+      expect(result.pagination).toEqual({ page: 3, limit: 10, total: 0, totalPages: 0 });
+    });
+
+    it('rejects invalid pagination with 400', async () => {
+      await expect(service.listVenues({ limit: '500' })).rejects.toMatchObject({ status: 400 });
+      expect(repository.findPage).not.toHaveBeenCalled();
+    });
+
+    it('answers 501 while search filters are not implemented', async () => {
+      await expect(service.listVenues({ country: 'MX' })).rejects.toMatchObject({ status: 501 });
+      expect(repository.findPage).not.toHaveBeenCalled();
     });
   });
 
   describe('getVenueById', () => {
-    it('should return the venue when it exists', async () => {
-      const venue = new Venue({ id: 'v-1', name: 'Venue 1', description: 'D', location: 'L', ownerId: 'o-1' });
-      const mockRepository = { findAll: jest.fn(), save: jest.fn(), findById: jest.fn().mockResolvedValue(venue) };
+    it('returns the venue when it exists', async () => {
+      const venue = buildVenue();
+      repository.findById.mockResolvedValue(venue);
 
-      const result = await new VenueService(mockRepository).getVenueById('v-1');
-
-      expect(mockRepository.findById).toHaveBeenCalledWith('v-1');
-      expect(result).toBe(venue);
+      await expect(service.getVenueById('venue-1')).resolves.toBe(venue);
+      expect(repository.findById).toHaveBeenCalledWith('venue-1');
     });
 
-    it('should throw 404 when the venue does not exist', async () => {
-      const mockRepository = { findAll: jest.fn(), save: jest.fn(), findById: jest.fn().mockResolvedValue(null) };
+    it('throws 404 when the venue does not exist', async () => {
+      repository.findById.mockResolvedValue(null);
 
-      const error = await new VenueService(mockRepository).getVenueById('missing').catch((e) => e);
+      const error = await service.getVenueById('missing').catch((e) => e);
 
       expect(error).toBeInstanceOf(ApiError);
       expect(error.status).toBe(404);
@@ -45,135 +74,71 @@ describe('VenueService', () => {
   });
 
   describe('venueExists', () => {
-    it('should resolve to true only when the repository finds the venue', async () => {
-      const findById = jest.fn().mockResolvedValueOnce(new Venue('Venue 1', 'D', 'L', 'o-1')).mockResolvedValueOnce(null);
-      const mockRepository = { findAll: jest.fn(), save: jest.fn(), findById };
+    it('is true only when the repository finds the venue', async () => {
+      repository.findById.mockResolvedValueOnce(buildVenue()).mockResolvedValueOnce(null);
 
-      const service = new VenueService(mockRepository);
-
-      await expect(service.venueExists('v-1')).resolves.toBe(true);
+      await expect(service.venueExists('venue-1')).resolves.toBe(true);
       await expect(service.venueExists('missing')).resolves.toBe(false);
     });
   });
 
   describe('registerVenue', () => {
-    let mockRepository;
-    let service;
-
-    beforeEach(() => {
-      mockRepository = {
-        findAll: jest.fn(),
-        save: jest.fn(async (venue) => venue),
-      };
-      service = new VenueService(mockRepository);
-    });
-
-    // ── success path ──────────────────────────────────────────────────────────
-
-    it('should register venue using currentUser.userId when provided', async () => {
-      const payload = {
-        name: 'Foro Indie',
-        description: 'Indie venue',
-        location: 'Roma Norte',
-      };
-      const currentUser = { userId: 'user-789', role: 'venue_owner' };
-
-      const result = await service.registerVenue(payload, currentUser);
+    it('creates the venue for the token subject', async () => {
+      const result = await service.registerVenue(validVenuePayload, owner);
 
       expect(result).toBeInstanceOf(Venue);
       expect(result.ownerId).toBe('user-789');
+      expect(result.location).toEqual(validVenuePayload.location);
+      expect(result.latestMapVersion).toBe(0);
+      expect(repository.save).toHaveBeenCalledWith(result, 'Alex');
     });
 
-    // ── 403 path ──────────────────────────────────────────────────────────────
-
-    it('should throw 403 when currentUser is not provided', async () => {
-      const payload = {
-        name: 'Teatro Metropolitan',
-        description: 'Historic theatre',
-        location: 'Centro Historico',
-      };
-
-      const error = await service.registerVenue(payload).catch((e) => e);
+    it.each([
+      ['no user', undefined],
+      ['a user without role', { userId: 'legacy' }],
+      ['an organizer', { userId: 'user-organizer', role: 'organizer' }],
+    ])('throws 403 for %s', async (_label, user) => {
+      const error = await service.registerVenue(validVenuePayload, user).catch((e) => e);
 
       expect(error).toBeInstanceOf(ApiError);
       expect(error.status).toBe(403);
+      expect(repository.save).not.toHaveBeenCalled();
     });
 
-    it('should throw 403 when currentUser has no role', async () => {
-      const payload = {
-        name: 'Auditorio Sala B',
-        description: 'Acoustic hall',
-        location: 'Polanco',
-      };
-      const currentUser = { id: 'legacy-id-45' };
+    it('throws 400 before saving when the body is invalid', async () => {
+      await expect(service.registerVenue({ ...validVenuePayload, name: '  ' }, owner))
+        .rejects.toThrow('Field "name" is required');
+      expect(repository.save).not.toHaveBeenCalled();
+    });
 
-      const error = await service.registerVenue(payload, currentUser).catch((e) => e);
+    it('throws 409 with existingVenueId when the osmRef is already registered', async () => {
+      repository.findByOsmRef.mockResolvedValue(buildVenue({ id: 'venue-existing', osmRef: 'way:42' }));
+
+      const error = await service.registerVenue({ ...validVenuePayload, osmRef: 'way:42' }, owner).catch((e) => e);
 
       expect(error).toBeInstanceOf(ApiError);
-      expect(error.status).toBe(403);
+      expect(error.status).toBe(409);
+      expect(error.details).toEqual({ existingVenueId: 'venue-existing' });
+      expect(repository.save).not.toHaveBeenCalled();
     });
 
-    it('should throw 403 when currentUser is absent even if ownerId supplied in data', async () => {
-      const payload = {
-        name: 'Open Air Stadium',
-        description: 'Large arena',
-        location: 'Tlalpan',
-      };
+    it('throws 409 when a concurrent insert wins the unique osmRef index', async () => {
+      repository.findByOsmRef
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(buildVenue({ id: 'venue-winner', osmRef: 'way:42' }));
+      repository.save.mockRejectedValue(Object.assign(new Error('Unique constraint failed'), { code: 'P2002' }));
 
-      const error = await service.registerVenue(payload).catch((e) => e);
+      const error = await service.registerVenue({ ...validVenuePayload, osmRef: 'way:42' }, owner).catch((e) => e);
 
-      expect(error).toBeInstanceOf(ApiError);
-      expect(error.status).toBe(403);
+      expect(error.status).toBe(409);
+      expect(error.details).toEqual({ existingVenueId: 'venue-winner' });
     });
 
-    it('should throw 403 when currentUser.role is not venue_owner', async () => {
-      const payload = {
-        name: 'Community Center',
-        description: 'Multi-purpose room',
-        location: 'Coyoacan',
-      };
-      const nonOwnerUser = { userId: 'user-organizer', role: 'organizer' };
+    it('rethrows storage failures that are not osmRef conflicts', async () => {
+      const failure = new Error('Database down');
+      repository.save.mockRejectedValue(failure);
 
-      const error = await service.registerVenue(payload, nonOwnerUser).catch((e) => e);
-
-      expect(error).toBeInstanceOf(ApiError);
-      expect(error.status).toBe(403);
-    });
-
-    // ── 400 path ──────────────────────────────────────────────────────────────
-
-    it('should throw ApiError(400) if name is missing or empty', async () => {
-      const payload = {
-        name: '   ',
-        description: 'Desc',
-        location: 'Loc',
-      };
-
-      await expect(service.registerVenue(payload)).rejects.toThrow(ApiError);
-      await expect(service.registerVenue(payload)).rejects.toThrow('Field "name" is required');
-    });
-
-    it('should throw ApiError(400) if description is missing or empty', async () => {
-      const payload = {
-        name: 'Valid Name',
-        description: '',
-        location: 'Loc',
-      };
-
-      await expect(service.registerVenue(payload)).rejects.toThrow(ApiError);
-      await expect(service.registerVenue(payload)).rejects.toThrow('Field "description" is required');
-    });
-
-    it('should throw ApiError(400) if location is missing or empty', async () => {
-      const payload = {
-        name: 'Valid Name',
-        description: 'Valid Desc',
-      };
-
-      await expect(service.registerVenue(payload)).rejects.toThrow(ApiError);
-      await expect(service.registerVenue(payload)).rejects.toThrow('Field "location" is required');
+      await expect(service.registerVenue(validVenuePayload, owner)).rejects.toBe(failure);
     });
   });
 });
-
-export {};

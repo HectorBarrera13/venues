@@ -19,7 +19,8 @@ if the result differs from the committed file, so the contract cannot drift away
 
 ### Error format
 
-Every error response, including unmatched routes and CORS rejections, uses a single shape:
+Every error response, including unmatched routes and CORS rejections, carries an `error` message.
+Some statuses add machine-readable fields next to it (`existingVenueId` on `409`, `errors` on `422`):
 
 ```json
 {
@@ -28,7 +29,9 @@ Every error response, including unmatched routes and CORS rejections, uses a sin
 ```
 
 The HTTP status carries the meaning: `400` invalid input, `401` missing or invalid token, `403`
-authenticated but role not allowed, `404` unknown route or resource, `500` unexpected failure.
+authenticated but role not allowed, `404` unknown route or resource, `409` duplicate venue, `422` seat map
+rejected by a business rule, `500` unexpected failure, `501` route defined in the contract but not
+implemented yet.
 
 ---
 
@@ -63,7 +66,7 @@ export TOKEN=$(scripts/make-token --role VENUE_OWNER --sub owner-1)
 export EXPIRED_TOKEN=$(scripts/make-token --role ORGANIZER --sub organizer-1 --expired)
 
 curl -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"name":"Estadio Azteca","description":"Stadium","location":"Coyoacan"}' \
+  -d '{"name":"Estadio Azteca","address":"Calzada de Tlalpan 3465","city":"Ciudad de Mexico","country":"MX","location":{"lat":19.3029,"lng":-99.1505}}' \
   http://localhost:3000/venues
 ```
 
@@ -119,23 +122,45 @@ The probe gives up after 2 seconds, so the response arrives quickly even while t
 
 ### 3.3 List Venues
 
-Retrieves the catalogue of all registered venues, from every owner. No caching, no pagination.
+Paginated catalogue of every registered venue, from every owner, ordered by creation date.
 
 - **Method**: `GET`
 - **Path**: `/venues` (also accessible via `/api/venues`)
 - **Authentication**: Required (`VENUE_OWNER` or `ORGANIZER`)
+- **Query parameters**:
+
+  | Name | Type | Default | Rule |
+  |---|---|---|---|
+  | `page` | integer | `1` | `>= 1` |
+  | `limit` | integer | `20` | `1..100` |
+  | `lat`, `lng`, `radius_km` | number | — | All three or none; `radius_km` in `(0, 500]` |
+  | `country` | string | — | ISO 3166-1 alpha-2 |
+  | `city`, `name` | string | — | Non-empty |
+
+  Search filters are validated (`400` when invalid) but **not implemented yet**: a valid request that uses
+  any of them answers `501 Not Implemented` until the search ticket lands.
 - **Response**: `200 OK`
   ```json
-  [
-    {
-      "id": "3f7c1b52-9d0e-4a63-8c21-5b6e9a4d2f10",
-      "name": "Arena Ciudad de Mexico",
-      "description": "Large indoor arena for major concerts and events",
-      "location": "Avenida de las Granjas 800, Azcapotzalco, CDMX",
-      "ownerId": "owner-1",
-      "createdAt": "2026-03-28T09:00:00.000Z"
-    }
-  ]
+  {
+    "data": [
+      {
+        "id": "3f7c1b52-9d0e-4a63-8c21-5b6e9a4d2f10",
+        "name": "Arena Ciudad de Mexico",
+        "description": "Large indoor arena for major concerts and events",
+        "address": "Avenida de las Granjas 800, Azcapotzalco",
+        "city": "Ciudad de Mexico",
+        "country": "MX",
+        "location": { "lat": 19.4894, "lng": -99.1830 },
+        "externalId": "282893735",
+        "externalSource": "nominatim",
+        "osmRef": "way:123456",
+        "latestMapVersion": 0,
+        "ownerId": "owner-1",
+        "createdAt": "2026-03-28T09:00:00.000Z"
+      }
+    ],
+    "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
+  }
   ```
 
 ---
@@ -150,35 +175,62 @@ Creates a new physical venue record. The `ownerId` is automatically attributed f
 - **Headers**:
   - `Content-Type: application/json`
   - `Authorization: Bearer <jwt-token>`
-- **Notes**: `ownerId` and any other extra field in the body are ignored; the owner is always the `sub` claim of the token.
+- **Notes**: `ownerId` and any other unknown field in the body are ignored; the owner is always the `sub`
+  claim of the token. `location` is stored as a GeoJSON Point (`[lng, lat]`, WGS84) but the API always
+  speaks `{ lat, lng }`.
 - **Request Body**:
   ```json
   {
     "name": "Estadio Azteca",
     "description": "Multi-purpose stadium for sports and mass events",
-    "location": "Calzada de Tlalpan 3465, Coyoacan, CDMX"
+    "address": "Calzada de Tlalpan 3465, Santa Ursula Coapa",
+    "city": "Ciudad de Mexico",
+    "country": "MX",
+    "location": { "lat": 19.3029, "lng": -99.1505 },
+    "externalId": "282893735",
+    "externalSource": "nominatim",
+    "osmRef": "way:24930346"
   }
   ```
+
+  | Field | Required | Rule |
+  |---|---|---|
+  | `name`, `address`, `city` | yes | Non-empty string, max 200 chars (trimmed) |
+  | `country` | yes | ISO 3166-1 alpha-2, stored upper-case |
+  | `location.lat` / `location.lng` | yes | Numbers in `[-90, 90]` / `[-180, 180]` |
+  | `description` | no | String or `null` |
+  | `externalId` | no | Requires `externalSource` |
+  | `externalSource` | no | Geocoder name, e.g. `"nominatim"` |
+  | `osmRef` | no | `node:<id>`, `way:<id>` or `relation:<id>`; unique among venues |
 - **Response**: `201 Created`
   ```json
   {
     "id": "8e2a4d19-77c3-4f50-b6e8-1a9d3c7b5e24",
     "name": "Estadio Azteca",
     "description": "Multi-purpose stadium for sports and mass events",
-    "location": "Calzada de Tlalpan 3465, Coyoacan, CDMX",
+    "address": "Calzada de Tlalpan 3465, Santa Ursula Coapa",
+    "city": "Ciudad de Mexico",
+    "country": "MX",
+    "location": { "lat": 19.3029, "lng": -99.1505 },
+    "externalId": "282893735",
+    "externalSource": "nominatim",
+    "osmRef": "way:24930346",
+    "latestMapVersion": 0,
     "ownerId": "owner-1",
     "createdAt": "2026-03-28T09:02:30.123Z"
   }
   ```
 - **Error Responses**:
-  - `400 Bad Request`: Missing mandatory fields (`name`, `description`, `location`).
+  - `400 Bad Request`: A field is missing or invalid; the message names it.
     ```json
-    {
-      "error": "Field \"name\" is required"
-    }
+    { "error": "Field \"country\" must be an ISO 3166-1 alpha-2 country code" }
     ```
   - `401 Unauthorized`: Missing or invalid authentication token.
   - `403 Forbidden`: Authenticated user does not possess `VENUE_OWNER` permissions.
+  - `409 Conflict`: A venue with the same `osmRef` already exists.
+    ```json
+    { "error": "A venue with osmRef \"way:24930346\" already exists", "existingVenueId": "8e2a4d19-77c3-4f50-b6e8-1a9d3c7b5e24" }
+    ```
 
 ---
 

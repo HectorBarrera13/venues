@@ -79,3 +79,25 @@ describe('ApiError', () => {
 });
 
 export {};
+describe('ApiError extended factories', () => {
+  it('conflict carries 409 and optional details', () => {
+    const err = ApiError.conflict('Duplicate', { existingVenueId: 'v-1' });
+    expect(err.status).toBe(409);
+    expect(err.details).toEqual({ existingVenueId: 'v-1' });
+  });
+
+  it('unprocessable carries 422 and optional details', () => {
+    const err = ApiError.unprocessable('Map validation failed', { errors: [] });
+    expect(err.status).toBe(422);
+    expect(err.details).toEqual({ errors: [] });
+  });
+
+  it('notImplemented carries 501', () => {
+    expect(ApiError.notImplemented().status).toBe(501);
+    expect(ApiError.notImplemented().message).toBe('Not Implemented');
+  });
+
+  it('omits details when none are given', () => {
+    expect(ApiError.badRequest()).not.toHaveProperty('details');
+  });
+});
