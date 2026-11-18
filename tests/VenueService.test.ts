@@ -9,6 +9,7 @@ function mockRepository() {
   return {
     save: jest.fn(async (venue: Venue) => venue),
     findPage: jest.fn(),
+    search: jest.fn(),
     findById: jest.fn(),
     findByOsmRef: jest.fn().mockResolvedValue(null),
   };
@@ -48,9 +49,22 @@ describe('VenueService', () => {
       expect(repository.findPage).not.toHaveBeenCalled();
     });
 
-    it('answers 501 while search filters are not implemented', async () => {
-      await expect(service.listVenues({ country: 'MX' })).rejects.toMatchObject({ status: 501 });
+    it('delegates filtered queries to repository.search', async () => {
+      const venue = buildVenue({ latestMapVersion: 1 });
+      repository.search.mockResolvedValue({ items: [{ venue }], total: 1 });
+
+      const result = await service.listVenues({ country: 'mx' });
+
+      expect(repository.search).toHaveBeenCalledWith({
+        skip: 0,
+        take: 20,
+        filters: { country: 'MX' },
+      });
       expect(repository.findPage).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        data: [venue],
+        pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+      });
     });
   });
 
