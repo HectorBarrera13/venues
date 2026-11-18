@@ -25,10 +25,11 @@ function isUniqueViolation(error: unknown): boolean {
   return Boolean(error && typeof error === 'object' && (error as { code?: unknown }).code === 'P2002');
 }
 
-function duplicateOsmRef(existing: Venue): ApiError {
-  return ApiError.conflict(`A venue with osmRef "${existing.osmRef}" already exists`, {
-    existingVenueId: existing.id,
-  });
+export const DUPLICATE_VENUE_MESSAGE = 'venue already exists';
+
+/** Dedupe is global: one physical venue, one registration, whoever the owner is. */
+function duplicateVenue(existing: Venue): ApiError {
+  return ApiError.conflict(DUPLICATE_VENUE_MESSAGE, { existingVenueId: existing.id });
 }
 
 export class VenueService {
@@ -65,12 +66,15 @@ export class VenueService {
       throw ApiError.forbidden();
     }
 
-    if (command.osmRef) {
-      const existing = await this.repository.findByOsmRef(command.osmRef);
-      if (existing) throw duplicateOsmRef(existing);
-    }
-
     const venue = new Venue({ ...command, ownerId: currentUser.userId });
+
+    // With an osmRef, it alone identifies the place; without it, fall back to name + rounded coordinates.
+    // Only the osmRef path is race-safe (unique index); the fallback is a best-effort check.
+    const existing = command.osmRef
+      ? await this.repository.findByOsmRef(command.osmRef)
+      : await this.repository.findDuplicate({ nameNormalized: venue.nameNormalized, ...venue.location });
+    if (existing) throw duplicateVenue(existing);
+
     try {
       return await this.repository.save(venue, currentUser.name);
     } catch (error) {
@@ -78,7 +82,7 @@ export class VenueService {
       const winner = command.osmRef && isUniqueViolation(error)
         ? await this.repository.findByOsmRef(command.osmRef)
         : null;
-      if (winner) throw duplicateOsmRef(winner);
+      if (winner) throw duplicateVenue(winner);
       throw error;
     }
   }
