@@ -32,6 +32,7 @@ describe('VenueRepository', () => {
         count: jest.fn().mockResolvedValue(41),
         findUnique: jest.fn().mockResolvedValue(record),
         findFirst: jest.fn().mockResolvedValue(record),
+        aggregateRaw: jest.fn().mockResolvedValue([{ items: [], meta: [] }]),
       },
     };
     repository = new VenueRepository(client);
@@ -59,13 +60,17 @@ describe('VenueRepository', () => {
     expect(saved.latestMapVersion).toBe(3);
   });
 
-  it('reads one page and the total count', async () => {
+  it('reads one page of mapped venues and the total count', async () => {
     const page = await repository.findPage({ skip: 20, take: 20 });
 
     expect(client.venue.findMany).toHaveBeenCalledWith({
+      where: { latestMapVersion: { gte: 1 } },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       skip: 20,
       take: 20,
+    });
+    expect(client.venue.count).toHaveBeenCalledWith({
+      where: { latestMapVersion: { gte: 1 } },
     });
     expect(page.total).toBe(41);
     expect(page.items[0]).toBeInstanceOf(Venue);
