@@ -28,6 +28,8 @@ export const DEDUPE_COORDINATE_DECIMALS = 4;
 export function roundCoordinate(value: number): number {
   const factor = 10 ** DEDUPE_COORDINATE_DECIMALS;
   return Math.round(value * factor) / factor;
+}
+
 export interface VenueSearchRequest extends PageRequest {
   filters: VenueSearchFilters;
 }
