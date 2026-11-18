@@ -142,9 +142,15 @@ npm run db:push
 npm run db:check
 ```
 
-The schema in `prisma/schema.prisma` defines `VenueOwner`, `Venue`, `Zone`, and `Seat`, with references matching the venue-store diagram. IDs are strings to match the existing venue API; `Venue.description` is stored as `desc` in MongoDB. `VenueOwner` holds the owner ID and name for the venue store; authentication remains owned by the Auth service. Prisma relations on MongoDB are managed by Prisma, so write operations should go through the client.
+The schema in `prisma/schema.prisma` defines `VenueOwner`, `Venue` and `MapVersion`:
 
-The venue routes now use `VenueRepository.ts`, which stores records through Prisma. `POST /venues` creates a venue and its owner record when needed; `GET /venues` reads persisted venues; `GET /venues/{id}` reads one venue or answers `404`. Both `/api/venues` aliases use the same repository. Data remains in MongoDB after the API process restarts.
+- `Venue` has a real geographic identity: `address`, `city`, `country` (ISO alpha-2), `location` stored as a GeoJSON Point (WGS84, `[lng, lat]`), optional geocoder references (`externalId`, `externalSource`, `osmRef`), a search key `nameNormalized`, and `latestMapVersion` (`0` until a map is saved).
+- `MapVersion` is an immutable seat-map snapshot per version (`stage`, `zones`, `seats` as JSON, see [`docs/map-format.md`](docs/map-format.md)), unique on `venueId + version`.
+- `VenueOwner` holds the owner ID and name; authentication remains owned by the Auth service.
+
+`npm run db:push` runs `prisma db push` and then `npm run db:indexes`, which creates the two indexes the Prisma MongoDB connector cannot declare: a `2dsphere` index on `venues.location` and a unique **partial** index on `venues.osmRef` (only string values take part, so venues without an OpenStreetMap reference never collide). Both steps are idempotent.
+
+The venue routes now use `VenueRepository.ts`, which stores records through Prisma. `POST /venues` creates a venue and its owner record when needed (`409` on a duplicate `osmRef`); `GET /venues` reads persisted venues as `{ data, pagination }`; `GET /venues/{id}` reads one venue or answers `404`. Both `/api/venues` aliases use the same repository. Data remains in MongoDB after the API process restarts.
 
 ### Database addresses
 
@@ -170,6 +176,8 @@ The venue routes now use `VenueRepository.ts`, which stores records through Pris
 | `npm run lint` | `eslint .` | Runs static code analysis |
 | `npm run build` | `tsc -p tsconfig.json && tsc -p tsconfig.tests.json` | Compiles the service and checks TypeScript tests |
 | `npm run db:generate` | `prisma generate` | Generates the Prisma client from `prisma/schema.prisma` |
+| `npm run db:push` | `prisma db push && npm run db:indexes` | Syncs collections and Prisma indexes, then creates the raw MongoDB indexes |
+| `npm run db:indexes` | `tsx scripts/ensure-indexes.ts` | Creates the `2dsphere` (`location`) and partial unique (`osmRef`) indexes |
 | `npm run db:check` | `tsx scripts/check-database.ts` | Pings MongoDB using `DATABASE_URL` from `.env` |
 | `npm run openapi:generate` | `tsx scripts/generate-openapi.ts` | Generates `openapi.json` without starting the server |
 | `npm run token:make` | `tsx scripts/make-token.ts` | Mints a development access token (`scripts/make-token`) |

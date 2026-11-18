@@ -1,15 +1,23 @@
 import type { ErrorRequestHandler } from 'express';
-import ApiError from '../errors/ApiError';
+import ApiError, { type ApiErrorDetails } from '../errors/ApiError';
+
+export interface HttpError {
+  status: number;
+  message: string;
+  details?: ApiErrorDetails;
+}
 
 /**
- * Maps any thrown value onto the HTTP status and message the client must observe.
+ * Maps any thrown value onto the HTTP status, message and extra body fields the client must observe.
  * `ApiError` carries its own status; errors raised by third-party code (Prisma,
  * body parsers, ...) may expose `status` or `statusCode`, and anything unknown
  * degrades to 500 without leaking internals.
  */
-export function toHttpError(error: unknown): { status: number; message: string } {
+export function toHttpError(error: unknown): HttpError {
   if (error instanceof ApiError) {
-    return { status: error.status, message: error.message };
+    return error.details
+      ? { status: error.status, message: error.message, details: error.details }
+      : { status: error.status, message: error.message };
   }
 
   const candidate = error && typeof error === 'object' ? (error as Record<string, unknown>) : {};
@@ -31,8 +39,8 @@ export function toHttpError(error: unknown): { status: number; message: string }
  * Controllers only forward errors here.
  */
 export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
-  const { status, message } = toHttpError(error);
-  res.status(status).json({ error: message });
+  const { status, message, details } = toHttpError(error);
+  res.status(status).json({ ...details, error: message });
 };
 
 export default errorHandler;

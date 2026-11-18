@@ -4,6 +4,7 @@ import app from '../src/app';
 import { AUTH_CONFIG } from '../src/auth/authConfig';
 import Venue from '../src/entities/Venue';
 import { venueRepository } from '../src/repositories/VenueRepository';
+import { validVenuePayload as validPayload } from './helpers/venues';
 
 const TEST_SECRET = 'integration-test-secret';
 process.env.JWT_SECRET = TEST_SECRET;
@@ -34,12 +35,6 @@ function tamper(tokenValue: string, mutate: (payload: Record<string, unknown>) =
   return [header, Buffer.from(JSON.stringify(decoded)).toString('base64url'), signature].join('.');
 }
 
-const validPayload = {
-  name: 'Foro Indie',
-  description: 'Indie venue',
-  location: 'Roma Norte',
-};
-
 describe('Venues API authentication and authorization', () => {
   let stored: Venue[];
 
@@ -49,7 +44,13 @@ describe('Venues API authentication and authorization', () => {
       stored.push(venue);
       return venue;
     });
-    jest.spyOn(venueRepository, 'findAll').mockImplementation(async () => [...stored]);
+    jest.spyOn(venueRepository, 'findPage').mockImplementation(async ({ skip, take }) => ({
+      items: stored.slice(skip, skip + take),
+      total: stored.length,
+    }));
+    jest.spyOn(venueRepository, 'findByOsmRef').mockImplementation(
+      async (osmRef: string) => stored.find((venue) => venue.osmRef === osmRef) ?? null
+    );
     jest.spyOn(venueRepository, 'findById').mockImplementation(
       async (id: string) => stored.find((venue) => venue.id === id) ?? null
     );
@@ -70,7 +71,9 @@ describe('Venues API authentication and authorization', () => {
       expect(response.body).toMatchObject({
         name: validPayload.name,
         description: validPayload.description,
+        country: 'MX',
         location: validPayload.location,
+        latestMapVersion: 0,
         ownerId: 'owner-42',
       });
       expect(typeof response.body.id).toBe('string');
@@ -79,16 +82,21 @@ describe('Venues API authentication and authorization', () => {
     });
 
     it.each([
-      ['name', { description: 'Desc', location: 'Loc' }],
-      ['description', { name: 'Name', location: 'Loc' }],
-      ['location', { name: 'Name', description: 'Desc' }],
-      ['name', { ...validPayload, name: null }],
-      ['description', { ...validPayload, description: null }],
-      ['location', { ...validPayload, location: null }],
+      ['name', { ...validPayload, name: undefined }],
       ['name', { ...validPayload, name: '   ' }],
-      ['description', { ...validPayload, description: '   ' }],
-      ['location', { ...validPayload, location: '   ' }],
-    ])('returns 400 identifying the missing field "%s"', async (field, payload) => {
+      ['address', { ...validPayload, address: null }],
+      ['city', { ...validPayload, city: '' }],
+      ['country', { ...validPayload, country: undefined }],
+      ['country', { ...validPayload, country: 'XX' }],
+      ['country', { ...validPayload, country: 'MEX' }],
+      ['location', { ...validPayload, location: undefined }],
+      ['location', { ...validPayload, location: 'Roma Norte' }],
+      ['location.lat', { ...validPayload, location: { lat: 91, lng: 0 } }],
+      ['location.lng', { ...validPayload, location: { lat: 0, lng: '-99.1' } }],
+      ['description', { ...validPayload, description: 42 }],
+      ['osmRef', { ...validPayload, osmRef: 'node/123' }],
+      ['externalSource', { ...validPayload, externalId: '123' }],
+    ])('returns 400 naming the invalid field "%s"', async (field, payload) => {
       const response = await request(app)
         .post('/venues')
         .set('Authorization', `Bearer ${ownerToken('owner-42')}`)
@@ -97,6 +105,34 @@ describe('Venues API authentication and authorization', () => {
 
       expect(response.body.error).toContain(`"${field}"`);
       expect(stored).toHaveLength(0);
+    });
+
+    it('returns 409 with the existing venue id when the osmRef is already registered', async () => {
+      const first = await request(app)
+        .post('/venues')
+        .set('Authorization', `Bearer ${ownerToken('owner-a')}`)
+        .send({ ...validPayload, osmRef: 'way:123' })
+        .expect(201);
+
+      const response = await request(app)
+        .post('/venues')
+        .set('Authorization', `Bearer ${ownerToken('owner-b')}`)
+        .send({ ...validPayload, name: 'Otro nombre', osmRef: 'way:123' })
+        .expect(409);
+
+      expect(response.body.existingVenueId).toBe(first.body.id);
+      expect(stored).toHaveLength(1);
+    });
+
+    it('allows any number of venues without osmRef', async () => {
+      for (const sub of ['owner-a', 'owner-b']) {
+        await request(app)
+          .post('/venues')
+          .set('Authorization', `Bearer ${ownerToken(sub)}`)
+          .send(validPayload)
+          .expect(201);
+      }
+      expect(stored).toHaveLength(2);
     });
 
     it('ignores an ownerId sent in the body and keeps the token subject', async () => {
@@ -195,8 +231,8 @@ describe('Venues API authentication and authorization', () => {
         .set('Authorization', `Bearer ${organizerToken('organizer-9')}`)
         .expect(200);
 
-      expect(response.body).toHaveLength(2);
-      expect(response.body.map((venue: { ownerId: string }) => venue.ownerId).sort()).toEqual([
+      expect(response.body.pagination.total).toBe(2);
+      expect(response.body.data.map((venue: { ownerId: string }) => venue.ownerId).sort()).toEqual([
         'owner-a',
         'owner-b',
       ]);

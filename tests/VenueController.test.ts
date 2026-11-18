@@ -1,169 +1,92 @@
-const { VenueController } = require('../src/controllers/VenueController');
-const ApiError = require('../src/errors/ApiError').default;
+import { VenueController } from '../src/controllers/VenueController';
+import ApiError from '../src/errors/ApiError';
+import { buildVenue, validVenuePayload } from './helpers/venues';
 
-describe('VenueController.list (Task 5)', () => {
-  let mockVenueService;
-  let controller;
-  let req;
-  let res;
-  let next;
+function mockResponse() {
+  return { status: jest.fn().mockReturnThis(), json: jest.fn().mockReturnThis() };
+}
+
+describe('VenueController', () => {
+  let service: { listVenues: jest.Mock; registerVenue: jest.Mock; getVenueById: jest.Mock };
+  let controller: VenueController;
+  let res: ReturnType<typeof mockResponse>;
+  let next: jest.Mock;
 
   beforeEach(() => {
-    mockVenueService = {
-      listVenues: jest.fn(),
-      registerVenue: jest.fn(),
-    };
-    controller = new VenueController(mockVenueService);
-    req = {};
-    res = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn().mockReturnThis(),
-    };
+    service = { listVenues: jest.fn(), registerVenue: jest.fn(), getVenueById: jest.fn() };
+    controller = new VenueController(service as any);
+    res = mockResponse();
     next = jest.fn();
   });
 
-  it('should call venueService.listVenues and return 200 with JSON', async () => {
-    const rawVenue = {
-      id: '1',
-      name: 'Expo Center',
-      toJSON: jest.fn().mockReturnValue({ id: '1', name: 'Expo Center (serialized)' }),
-    };
-    mockVenueService.listVenues.mockResolvedValue([rawVenue]);
+  describe('list', () => {
+    it('passes the query to the service and renders { data, pagination }', async () => {
+      const venue = buildVenue();
+      const pagination = { page: 1, limit: 20, total: 1, totalPages: 1 };
+      service.listVenues.mockResolvedValue({ data: [venue], pagination });
 
-    await controller.list(req, res, next);
+      await controller.list({ query: { page: '1' } } as any, res as any, next);
 
-    expect(mockVenueService.listVenues).toHaveBeenCalledTimes(1);
-    expect(rawVenue.toJSON).toHaveBeenCalledTimes(1);
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith([{ id: '1', name: 'Expo Center (serialized)' }]);
-  });
+      expect(service.listVenues).toHaveBeenCalledWith({ page: '1' });
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ data: [venue.toJSON()], pagination });
+    });
 
-  it('should handle venues that do not have a toJSON method gracefully', async () => {
-    const plainVenue = { id: '2', name: 'Plain Venue' };
-    mockVenueService.listVenues.mockResolvedValue([plainVenue]);
+    it('forwards errors to the error handler without rendering', async () => {
+      const error = new Error('Database failure');
+      service.listVenues.mockRejectedValue(error);
 
-    await controller.list(req, res, next);
+      await controller.list({ query: {} } as any, res as any, next);
 
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith([plainVenue]);
-  });
-
-  it('should call next with error if service throws', async () => {
-    const error = new Error('Database failure');
-    mockVenueService.listVenues.mockRejectedValue(error);
-
-    await controller.list(req, res, next);
-
-    expect(next).toHaveBeenCalledWith(error);
-  });
-
-  it('should never render an error response itself, leaving it to the error handler', async () => {
-    mockVenueService.listVenues.mockRejectedValue(new Error('Unexpected crash'));
-
-    await controller.list(req, res, next);
-
-    expect(res.status).not.toHaveBeenCalled();
-    expect(res.json).not.toHaveBeenCalled();
-  });
-});
-
-describe('VenueController.create (Task 2)', () => {
-  let mockVenueService;
-  let controller;
-  let req;
-  let res;
-  let next;
-
-  beforeEach(() => {
-    mockVenueService = {
-      listVenues: jest.fn(),
-      registerVenue: jest.fn(),
-    };
-    controller = new VenueController(mockVenueService);
-    req = {
-      body: {
-        name: 'Palacio de los Deportes',
-        description: 'Indoor arena',
-        location: 'Iztacalco',
-      },
-      user: { id: 'user-42' },
-    };
-    res = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn().mockReturnThis(),
-    };
-    next = jest.fn();
-  });
-
-  it('should call venueService.registerVenue with req.body and req.user and return 201 with serialized JSON', async () => {
-    const mockCreatedVenue = {
-      id: 'venue-10',
-      name: 'Palacio de los Deportes',
-      description: 'Indoor arena',
-      location: 'Iztacalco',
-      ownerId: 'user-42',
-      createdAt: '2026-09-18T10:00:00.000Z',
-      toJSON: jest.fn().mockReturnValue({
-        id: 'venue-10',
-        name: 'Palacio de los Deportes',
-        description: 'Indoor arena',
-        location: 'Iztacalco',
-        ownerId: 'user-42',
-        createdAt: '2026-09-18T10:00:00.000Z',
-      }),
-    };
-    mockVenueService.registerVenue.mockResolvedValue(mockCreatedVenue);
-
-    await controller.create(req, res, next);
-
-    expect(mockVenueService.registerVenue).toHaveBeenCalledWith(req.body, req.user);
-    expect(mockCreatedVenue.toJSON).toHaveBeenCalledTimes(1);
-    expect(res.status).toHaveBeenCalledWith(201);
-    expect(res.json).toHaveBeenCalledWith({
-      id: 'venue-10',
-      name: 'Palacio de los Deportes',
-      description: 'Indoor arena',
-      location: 'Iztacalco',
-      ownerId: 'user-42',
-      createdAt: '2026-09-18T10:00:00.000Z',
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
     });
   });
 
-  it('should handle venues that do not have toJSON method gracefully', async () => {
-    const plainVenue = {
-      id: 'venue-20',
-      name: 'Plain Stage',
-      location: 'Condesa',
-    };
-    mockVenueService.registerVenue.mockResolvedValue(plainVenue);
+  describe('getById', () => {
+    it('renders the venue', async () => {
+      const venue = buildVenue();
+      service.getVenueById.mockResolvedValue(venue);
 
-    await controller.create(req, res, next);
+      await controller.getById({ params: { id: 'venue-1' } } as any, res as any, next);
 
-    expect(res.status).toHaveBeenCalledWith(201);
-    expect(res.json).toHaveBeenCalledWith(plainVenue);
+      expect(service.getVenueById).toHaveBeenCalledWith('venue-1');
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(venue.toJSON());
+    });
+
+    it('forwards a 404 to the error handler', async () => {
+      const error = ApiError.notFound();
+      service.getVenueById.mockRejectedValue(error);
+
+      await controller.getById({ params: { id: 'x' } } as any, res as any, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+    });
   });
 
-  it('should call next with error when registerVenue throws', async () => {
-    const apiError = ApiError.badRequest('Venue name is required');
-    mockVenueService.registerVenue.mockRejectedValue(apiError);
+  describe('create', () => {
+    it('registers the body for the authenticated user and answers 201', async () => {
+      const venue = buildVenue();
+      service.registerVenue.mockResolvedValue(venue);
+      const req = { body: validVenuePayload, user: { userId: 'owner-1', role: 'VENUE_OWNER' } };
 
-    await controller.create(req, res, next);
+      await controller.create(req as any, res as any, next);
 
-    expect(next).toHaveBeenCalledWith(apiError);
-    expect(res.status).not.toHaveBeenCalled();
-    expect(res.json).not.toHaveBeenCalled();
-  });
+      expect(service.registerVenue).toHaveBeenCalledWith(req.body, req.user);
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(res.json).toHaveBeenCalledWith(venue.toJSON());
+    });
 
-  it('should delegate generic service errors to the error handler without rendering them', async () => {
-    const genericError = new Error('Unexpected database failure');
-    mockVenueService.registerVenue.mockRejectedValue(genericError);
+    it('forwards service errors to the error handler without rendering', async () => {
+      const error = ApiError.badRequest('Field "name" is required');
+      service.registerVenue.mockRejectedValue(error);
 
-    await controller.create(req, res, next);
+      await controller.create({ body: {} } as any, res as any, next);
 
-    expect(next).toHaveBeenCalledWith(genericError);
-    expect(res.status).not.toHaveBeenCalled();
-    expect(res.json).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
+      expect(res.json).not.toHaveBeenCalled();
+    });
   });
 });
-
-export {};

@@ -1,14 +1,20 @@
+/** Extra top-level fields rendered next to `error`, e.g. `existingVenueId` or `errors`. */
+export type ApiErrorDetails = Record<string, unknown>;
+
 /**
  * Error carrying the HTTP status the client must observe.
- * The error response body is rendered exclusively by `src/middleware/errorHandler.ts`.
+ * The error response body is rendered exclusively by `src/middleware/errorHandler.ts`
+ * as `{ error: message, ...details }`.
  */
 export class ApiError extends Error {
   readonly status: number;
+  readonly details?: ApiErrorDetails;
 
-  constructor(status = 500, message = 'Internal Server Error') {
+  constructor(status = 500, message = 'Internal Server Error', details?: ApiErrorDetails) {
     super(message);
     this.status = status;
     this.name = 'ApiError';
+    if (details) this.details = details;
   }
 
   static badRequest(message = 'Bad Request'): ApiError {
@@ -27,8 +33,20 @@ export class ApiError extends Error {
     return new ApiError(404, message);
   }
 
+  static conflict(message = 'Conflict', details?: ApiErrorDetails): ApiError {
+    return new ApiError(409, message, details);
+  }
+
+  static unprocessable(message = 'Unprocessable Entity', details?: ApiErrorDetails): ApiError {
+    return new ApiError(422, message, details);
+  }
+
   static internal(message = 'Internal Server Error'): ApiError {
     return new ApiError(500, message);
+  }
+
+  static notImplemented(message = 'Not Implemented'): ApiError {
+    return new ApiError(501, message);
   }
 }
 

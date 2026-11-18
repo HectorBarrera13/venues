@@ -68,3 +68,22 @@ describe('errorHandler Middleware (Task 7)', () => {
 });
 
 export {};
+
+describe('errorHandler details', () => {
+  it('renders ApiError details next to the error message', () => {
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn().mockReturnThis() };
+
+    errorHandler(ApiError.conflict('Duplicate', { existingVenueId: 'venue-1' }), {}, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({ existingVenueId: 'venue-1', error: 'Duplicate' });
+  });
+
+  it('never lets details overwrite the error message', () => {
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn().mockReturnThis() };
+
+    errorHandler(new ApiError(422, 'Map validation failed', { error: 'spoofed', errors: [] }), {}, res, jest.fn());
+
+    expect(res.json).toHaveBeenCalledWith({ error: 'Map validation failed', errors: [] });
+  });
+});

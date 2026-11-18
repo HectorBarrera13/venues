@@ -1,18 +1,27 @@
-const { VenueRepository } = require('../src/repositories/VenueRepository');
-const Venue = require('../src/entities/Venue').default;
+import { VenueRepository } from '../src/repositories/VenueRepository';
+import Venue from '../src/entities/Venue';
+import { buildVenue } from './helpers/venues';
 
 const record = {
   id: 'venue-1',
-  name: 'Auditorium',
+  name: 'Auditorio Nacional',
+  nameNormalized: 'auditorio nacional',
   description: 'Concert hall',
-  location: 'Centro',
+  address: 'Paseo de la Reforma 50',
+  city: 'Ciudad de Mexico',
+  country: 'MX',
+  location: { type: 'Point', coordinates: [-99.1951, 19.4245] },
+  externalId: null,
+  externalSource: null,
+  osmRef: 'way:42',
+  latestMapVersion: 3,
   ownerId: 'owner-1',
   createdAt: new Date('2026-10-01T12:00:00.000Z'),
 };
 
 describe('VenueRepository', () => {
-  let client;
-  let repository;
+  let client: any;
+  let repository: VenueRepository;
 
   beforeEach(() => {
     client = {
@@ -20,62 +29,70 @@ describe('VenueRepository', () => {
       venue: {
         upsert: jest.fn().mockResolvedValue(record),
         findMany: jest.fn().mockResolvedValue([record]),
+        count: jest.fn().mockResolvedValue(41),
         findUnique: jest.fn().mockResolvedValue(record),
+        findFirst: jest.fn().mockResolvedValue(record),
       },
     };
     repository = new VenueRepository(client);
   });
 
-  it('saves a venue and creates its owner record when needed', async () => {
-    const venue = new Venue({ ...record, createdAt: record.createdAt });
-    const saved = await repository.save(venue, 'Alex Morgan');
+  it('upserts the owner and stores the location as a GeoJSON Point', async () => {
+    const saved = await repository.save(buildVenue({ osmRef: 'way:42' }), 'Alex Morgan');
 
     expect(client.venueOwner.upsert).toHaveBeenCalledWith({
       where: { id: 'owner-1' },
       create: { id: 'owner-1', name: 'Alex Morgan' },
       update: { name: 'Alex Morgan' },
     });
-    expect(client.venue.upsert).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: 'venue-1' },
-      create: expect.objectContaining({
-        name: 'Auditorium',
-        owner: { connect: { id: 'owner-1' } },
-      }),
-    }));
+    const call = client.venue.upsert.mock.calls[0][0];
+    expect(call.where).toEqual({ id: 'venue-1' });
+    expect(call.create).toMatchObject({
+      nameNormalized: 'auditorio nacional',
+      location: { type: 'Point', coordinates: [-99.1951, 19.4245] },
+      latestMapVersion: 0,
+      owner: { connect: { id: 'owner-1' } },
+    });
+    expect(call.update).not.toHaveProperty('latestMapVersion');
     expect(saved).toBeInstanceOf(Venue);
-    expect(saved.toJSON()).toEqual({ ...record, createdAt: record.createdAt.toISOString() });
+    expect(saved.location).toEqual({ lat: 19.4245, lng: -99.1951 });
+    expect(saved.latestMapVersion).toBe(3);
   });
 
-  it('updates an existing venue by ID', async () => {
-    await repository.save(new Venue({ ...record, name: 'Auditorium Deluxe' }));
+  it('reads one page and the total count', async () => {
+    const page = await repository.findPage({ skip: 20, take: 20 });
 
-    expect(client.venue.upsert).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: 'venue-1' },
-      update: expect.objectContaining({ name: 'Auditorium Deluxe' }),
-    }));
+    expect(client.venue.findMany).toHaveBeenCalledWith({
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      skip: 20,
+      take: 20,
+    });
+    expect(page.total).toBe(41);
+    expect(page.items[0]).toBeInstanceOf(Venue);
+    expect(page.items[0].createdAt).toBe('2026-10-01T12:00:00.000Z');
   });
 
-  it('lists venues from MongoDB as domain entities', async () => {
-    const venues = await repository.findAll();
-
-    expect(client.venue.findMany).toHaveBeenCalledTimes(1);
-    expect(venues).toHaveLength(1);
-    expect(venues[0]).toBeInstanceOf(Venue);
-    expect(venues[0].createdAt).toBe('2026-10-01T12:00:00.000Z');
-  });
-
-  it('finds a venue by ID', async () => {
+  it('finds a venue by id', async () => {
     const venue = await repository.findById('venue-1');
 
     expect(client.venue.findUnique).toHaveBeenCalledWith({ where: { id: 'venue-1' } });
     expect(venue).toBeInstanceOf(Venue);
   });
 
-  it('returns null when no venue has the requested ID', async () => {
+  it('returns null when no venue has the requested id', async () => {
     client.venue.findUnique.mockResolvedValue(null);
-
     await expect(repository.findById('missing')).resolves.toBeNull();
   });
-});
 
-export {};
+  it('finds a venue by osmRef', async () => {
+    const venue = await repository.findByOsmRef('way:42');
+
+    expect(client.venue.findFirst).toHaveBeenCalledWith({ where: { osmRef: 'way:42' } });
+    expect(venue?.osmRef).toBe('way:42');
+  });
+
+  it('returns null when no venue has the osmRef', async () => {
+    client.venue.findFirst.mockResolvedValue(null);
+    await expect(repository.findByOsmRef('node:1')).resolves.toBeNull();
+  });
+});

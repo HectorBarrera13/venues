@@ -79,7 +79,7 @@ describe('CORS Origin Validation (Unit)', () => {
 
 describe('CORS Integration (Express app)', () => {
   beforeEach(() => {
-    jest.spyOn(venueRepository, 'findAll').mockResolvedValue([]);
+    jest.spyOn(venueRepository, 'findPage').mockResolvedValue({ items: [], total: 0 });
   });
 
   afterEach(() => {

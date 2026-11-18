@@ -3,27 +3,48 @@ import { AUTH_CONFIG, normalizeRole } from '../auth/authConfig';
 import Venue from '../entities/Venue';
 import ApiError from '../errors/ApiError';
 import { venueRepository, type VenueStore } from '../repositories/VenueRepository';
-
-export interface CreateVenueInput {
-  name?: string;
-  description?: string;
-  location?: string;
-}
+import { parseCreateVenue, parseListVenuesQuery } from '../validation/venueInput';
 
 export type VenueUser = AuthenticatedUser;
 
-function requiredText(value: unknown, field: string): string {
-  if (typeof value !== 'string' || !value.trim()) {
-    throw new ApiError(400, `Field "${field}" is required`);
-  }
-  return value.trim();
+export interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+/** Paginated list shape shared by every collection endpoint: `{ data, pagination }`. */
+export interface Paginated<T> {
+  data: T[];
+  pagination: Pagination;
+}
+
+/** Prisma reports a unique index violation (including raw MongoDB indexes) as P2002. */
+function isUniqueViolation(error: unknown): boolean {
+  return Boolean(error && typeof error === 'object' && (error as { code?: unknown }).code === 'P2002');
+}
+
+function duplicateOsmRef(existing: Venue): ApiError {
+  return ApiError.conflict(`A venue with osmRef "${existing.osmRef}" already exists`, {
+    existingVenueId: existing.id,
+  });
 }
 
 export class VenueService {
   constructor(private readonly repository: VenueStore = venueRepository) {}
 
-  async listVenues(): Promise<Venue[]> {
-    return this.repository.findAll();
+  async listVenues(rawQuery?: unknown): Promise<Paginated<Venue>> {
+    const { page, limit, filters } = parseListVenuesQuery(rawQuery);
+    if (Object.keys(filters).length > 0) {
+      throw ApiError.notImplemented('Venue search filters are not implemented yet');
+    }
+
+    const { items, total } = await this.repository.findPage({ skip: (page - 1) * limit, take: limit });
+    return {
+      data: items,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   async getVenueById(id: string): Promise<Venue> {
@@ -38,15 +59,28 @@ export class VenueService {
     return Boolean(await this.repository.findById(id));
   }
 
-  async registerVenue(data: CreateVenueInput | undefined, currentUser?: VenueUser): Promise<Venue> {
-    const name = requiredText(data?.name, 'name');
-    const description = requiredText(data?.description, 'description');
-    const location = requiredText(data?.location, 'location');
+  async registerVenue(body: unknown, currentUser?: VenueUser): Promise<Venue> {
+    const command = parseCreateVenue(body);
     if (!currentUser?.userId || normalizeRole(currentUser.role) !== AUTH_CONFIG.roles.VENUE_OWNER) {
       throw ApiError.forbidden();
     }
-    const venue = new Venue(name, description, location, currentUser.userId);
-    return this.repository.save(venue, currentUser.name);
+
+    if (command.osmRef) {
+      const existing = await this.repository.findByOsmRef(command.osmRef);
+      if (existing) throw duplicateOsmRef(existing);
+    }
+
+    const venue = new Venue({ ...command, ownerId: currentUser.userId });
+    try {
+      return await this.repository.save(venue, currentUser.name);
+    } catch (error) {
+      // Another request registered the same osmRef between the check and the insert.
+      const winner = command.osmRef && isUniqueViolation(error)
+        ? await this.repository.findByOsmRef(command.osmRef)
+        : null;
+      if (winner) throw duplicateOsmRef(winner);
+      throw error;
+    }
   }
 }
 
