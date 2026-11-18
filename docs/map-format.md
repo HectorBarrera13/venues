@@ -308,3 +308,31 @@ With `"stage": null`, the balcony renamed to `""` and the `z-vip` zone above add
 - Keep ids stable across saves; never reuse an id.
 - Always send `stage` (or `null`), `zones` and `seats`; omit nothing else from the shapes above and add nothing.
 - Render `422` errors from `code` + `seatIds` / `zoneIds`; treat `message` as display text only.
+
+---
+
+## 8. Shared fixtures
+
+[`tests/fixtures/maps/`](../tests/fixtures/maps) is the single source of truth for test maps, used as-is by
+the backend and the front (never copied or edited by hand in another repository).
+
+| File | Expected result |
+|---|---|
+| `valid-v1.json` | No error. Stage, three zones (one non-rectangular), row blocks, loose seats, rotations |
+| `seat-without-zone.json` | `SEAT_WITHOUT_ZONE`: zone `null`, unknown zone id, position outside its zone |
+| `empty-zone.json` | `EMPTY_ZONE` |
+| `overlap-seats.json` | `OVERLAP` (two seats 0.003 apart) |
+| `overlap-zones.json` | `OVERLAP` (two zone outlines) |
+| `unnamed-zone.json` | `UNNAMED_ZONE` |
+| `duplicate-label.json` | `DUPLICATE_LABEL` |
+| `no-stage.json` | `NO_STAGE` |
+| `multi-error.json` | `NO_STAGE`, `UNNAMED_ZONE`, `EMPTY_ZONE`, `DUPLICATE_LABEL` in one answer |
+
+[`manifest.json`](../tests/fixtures/maps/manifest.json) lists, for each file, the exact `errors` expected
+(`code`, `seatIds`, `zoneIds`; `message` is free text and left out). Any validator — backend VEN-202 or a
+front-side pre-check — is tested by loading each file and comparing its output with the manifest.
+`tests/mapFixtures.test.ts` already does so against a reference implementation of section 5, and also checks
+that every fixture is well-formed (no `400`).
+
+The front consumes the files from this repository at the same relative path
+(`tests/fixtures/maps/<file>`), e.g. through a git submodule or a pinned raw download in its test setup.
