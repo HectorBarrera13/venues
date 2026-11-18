@@ -1,3 +1,4 @@
+import ApiError from '../src/errors/ApiError';
 import { isIsoCountryCode, parseCreateVenue, parseListVenuesQuery } from '../src/validation/venueInput';
 import { validVenuePayload } from './helpers/venues';
 
@@ -26,12 +27,58 @@ describe('parseCreateVenue', () => {
     expect(command).toMatchObject({ externalId: '282893735', externalSource: 'nominatim', osmRef: 'relation:4508' });
   });
 
-  it('rejects a non-object body', () => {
-    expect(() => parseCreateVenue(undefined)).toThrow('Field "name" is required');
+  function fieldErrors(body: unknown) {
+    try {
+      parseCreateVenue(body);
+    } catch (error) {
+      return error as ApiError;
+    }
+    throw new Error('expected parseCreateVenue to throw');
+  }
+
+  it('reports every required field of a non-object body at once', () => {
+    const error = fieldErrors(undefined);
+    expect(error.status).toBe(400);
+    expect(error.details?.errors).toEqual([
+      { field: 'name', message: 'Field "name" is required' },
+      { field: 'address', message: 'Field "address" is required' },
+      { field: 'city', message: 'Field "city" is required' },
+      { field: 'country', message: 'Field "country" is required' },
+      { field: 'location', message: 'Field "location" is required' },
+    ]);
+    expect(error.details).toMatchObject({ field: 'name', message: 'Field "name" is required' });
   });
 
-  it('rejects overly long text', () => {
-    expect(() => parseCreateVenue({ ...validVenuePayload, name: 'x'.repeat(201) })).toThrow('at most 200');
+  it('lists several invalid fields in one 400', () => {
+    const error = fieldErrors({ ...validVenuePayload, city: ' ', country: 'ESPA', location: { lat: 95, lng: 181 } });
+    expect((error.details?.errors as { field: string }[]).map((e) => e.field)).toEqual(['city', 'country', 'lat', 'lng']);
+  });
+
+  it.each([
+    ['lat', { lat: 95, lng: 0 }],
+    ['lat', { lat: '19.4', lng: 0 }],
+    ['lng', { lat: 0, lng: 181 }],
+    ['lng', { lat: 0 }],
+  ])('attributes an invalid coordinate to "%s"', (field, location) => {
+    expect(fieldErrors({ ...validVenuePayload, location }).details?.field).toBe(field);
+  });
+
+  it.each(['name', 'address', 'city', 'country'])('attributes an empty %s to its field', (field) => {
+    expect(fieldErrors({ ...validVenuePayload, [field]: '  ' }).details?.field).toBe(field);
+  });
+
+  it('rejects a non-ISO country and accepts lower case', () => {
+    expect(fieldErrors({ ...validVenuePayload, country: 'ESPA' }).details?.field).toBe('country');
+    expect(parseCreateVenue({ ...validVenuePayload, country: 'es' }).country).toBe('ES');
+  });
+
+  it('rejects overly long text once, attributed to the field', () => {
+    const error = fieldErrors({ ...validVenuePayload, name: 'x'.repeat(201) });
+    expect(error.details?.errors).toEqual([{ field: 'name', message: 'Field "name" must be at most 200 characters' }]);
+  });
+
+  it('rejects a malformed osmRef', () => {
+    expect(fieldErrors({ ...validVenuePayload, osmRef: 'node-1' }).details?.field).toBe('osmRef');
   });
 });
 

@@ -11,6 +11,7 @@ function mockRepository() {
     findPage: jest.fn(),
     findById: jest.fn(),
     findByOsmRef: jest.fn().mockResolvedValue(null),
+    findDuplicate: jest.fn().mockResolvedValue(null),
   };
 }
 
@@ -107,7 +108,7 @@ describe('VenueService', () => {
 
     it('throws 400 before saving when the body is invalid', async () => {
       await expect(service.registerVenue({ ...validVenuePayload, name: '  ' }, owner))
-        .rejects.toThrow('Field "name" is required');
+        .rejects.toMatchObject({ status: 400, details: { field: 'name' } });
       expect(repository.save).not.toHaveBeenCalled();
     });
 
@@ -118,8 +119,41 @@ describe('VenueService', () => {
 
       expect(error).toBeInstanceOf(ApiError);
       expect(error.status).toBe(409);
+      expect(error.message).toBe('venue already exists');
       expect(error.details).toEqual({ existingVenueId: 'venue-existing' });
+      expect(repository.findDuplicate).not.toHaveBeenCalled();
       expect(repository.save).not.toHaveBeenCalled();
+    });
+
+    it('detects the duplicate osmRef even when another user registered it', async () => {
+      repository.findByOsmRef.mockResolvedValue(buildVenue({ id: 'venue-other', osmRef: 'way:42', ownerId: 'someone-else' }));
+
+      const error = await service.registerVenue({ ...validVenuePayload, osmRef: 'way:42' }, owner).catch((e) => e);
+
+      expect(error.details).toEqual({ existingVenueId: 'venue-other' });
+    });
+
+    it('without osmRef, looks for the same normalized name and position', async () => {
+      repository.findDuplicate.mockResolvedValue(buildVenue({ id: 'venue-same-place' }));
+
+      const error = await service.registerVenue({ ...validVenuePayload, name: '  FÓRO indie ' }, owner).catch((e) => e);
+
+      expect(repository.findDuplicate).toHaveBeenCalledWith({
+        nameNormalized: 'foro indie',
+        lat: validVenuePayload.location.lat,
+        lng: validVenuePayload.location.lng,
+      });
+      expect(error.status).toBe(409);
+      expect(error.details).toEqual({ existingVenueId: 'venue-same-place' });
+      expect(repository.save).not.toHaveBeenCalled();
+    });
+
+    it('creates the venue when no duplicate exists and ignores ownerId from the body', async () => {
+      const venue = await service.registerVenue({ ...validVenuePayload, ownerId: 'intruder' }, owner);
+
+      expect(venue.ownerId).toBe(owner.userId);
+      expect(venue.latestMapVersion).toBe(0);
+      expect(repository.save).toHaveBeenCalledTimes(1);
     });
 
     it('throws 409 when a concurrent insert wins the unique osmRef index', async () => {

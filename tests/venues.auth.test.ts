@@ -51,6 +51,10 @@ describe('Venues API authentication and authorization', () => {
     jest.spyOn(venueRepository, 'findByOsmRef').mockImplementation(
       async (osmRef: string) => stored.find((venue) => venue.osmRef === osmRef) ?? null
     );
+    jest.spyOn(venueRepository, 'findDuplicate').mockImplementation(async ({ nameNormalized, lat, lng }) =>
+      stored.find((venue) => !venue.osmRef && venue.nameNormalized === nameNormalized
+        && venue.location.lat === lat && venue.location.lng === lng) ?? null
+    );
     jest.spyOn(venueRepository, 'findById').mockImplementation(
       async (id: string) => stored.find((venue) => venue.id === id) ?? null
     );
@@ -91,8 +95,8 @@ describe('Venues API authentication and authorization', () => {
       ['country', { ...validPayload, country: 'MEX' }],
       ['location', { ...validPayload, location: undefined }],
       ['location', { ...validPayload, location: 'Roma Norte' }],
-      ['location.lat', { ...validPayload, location: { lat: 91, lng: 0 } }],
-      ['location.lng', { ...validPayload, location: { lat: 0, lng: '-99.1' } }],
+      ['lat', { ...validPayload, location: { lat: 91, lng: 0 } }],
+      ['lng', { ...validPayload, location: { lat: 0, lng: '-99.1' } }],
       ['description', { ...validPayload, description: 42 }],
       ['osmRef', { ...validPayload, osmRef: 'node/123' }],
       ['externalSource', { ...validPayload, externalId: '123' }],
@@ -103,7 +107,9 @@ describe('Venues API authentication and authorization', () => {
         .send(payload)
         .expect(400);
 
-      expect(response.body.error).toContain(`"${field}"`);
+      expect(response.body.error).toBe('Invalid venue data');
+      expect(response.body.field).toBe(field);
+      expect(response.body.errors).toContainEqual({ field, message: response.body.message });
       expect(stored).toHaveLength(0);
     });
 
@@ -124,12 +130,29 @@ describe('Venues API authentication and authorization', () => {
       expect(stored).toHaveLength(1);
     });
 
-    it('allows any number of venues without osmRef', async () => {
-      for (const sub of ['owner-a', 'owner-b']) {
+    it('without osmRef, rejects the same normalized name at the same position (any owner)', async () => {
+      const first = await request(app)
+        .post('/venues')
+        .set('Authorization', `Bearer ${ownerToken('owner-a')}`)
+        .send(validPayload)
+        .expect(201);
+
+      const second = await request(app)
+        .post('/venues')
+        .set('Authorization', `Bearer ${ownerToken('owner-b')}`)
+        .send({ ...validPayload, name: `  ${validPayload.name.toUpperCase()} ` })
+        .expect(409);
+
+      expect(second.body).toEqual({ error: 'venue already exists', existingVenueId: first.body.id });
+      expect(stored).toHaveLength(1);
+    });
+
+    it('without osmRef, accepts the same name at a different position', async () => {
+      for (const location of [validPayload.location, { lat: 25.6866, lng: -100.3161 }]) {
         await request(app)
           .post('/venues')
-          .set('Authorization', `Bearer ${ownerToken(sub)}`)
-          .send(validPayload)
+          .set('Authorization', `Bearer ${ownerToken('owner-a')}`)
+          .send({ ...validPayload, location })
           .expect(201);
       }
       expect(stored).toHaveLength(2);

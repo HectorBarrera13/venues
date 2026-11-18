@@ -111,6 +111,62 @@ describe('POST /venues', () => {
     });
   });
 
+  it('returns 400 naming every invalid field', async () => {
+    const save = jest.spyOn(venueRepository, 'save');
+
+    const response = await request(app)
+      .post('/venues')
+      .set('Authorization', OWNER_AUTHORIZATION)
+      .send({ ...validVenuePayload, country: 'ESPA', location: { lat: 95, lng: -99 } })
+      .expect(400);
+
+    expect(response.body).toEqual({
+      error: 'Invalid venue data',
+      field: 'country',
+      message: 'Field "country" must be an ISO 3166-1 alpha-2 country code',
+      errors: [
+        { field: 'country', message: 'Field "country" must be an ISO 3166-1 alpha-2 country code' },
+        { field: 'lat', message: 'Field "lat" must be a number between -90 and 90' },
+      ],
+    });
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('creates through the real service: owner from the token, no map yet', async () => {
+    jest.spyOn(venueRepository, 'findDuplicate').mockResolvedValue(null);
+    jest.spyOn(venueRepository, 'save').mockImplementation(async (venue) => venue);
+
+    const response = await request(app)
+      .post('/venues')
+      .set('Authorization', OWNER_AUTHORIZATION)
+      .send({ ...validVenuePayload, ownerId: 'someone-else' })
+      .expect(201);
+
+    expect(response.body).toMatchObject({
+      name: validVenuePayload.name,
+      address: validVenuePayload.address,
+      city: validVenuePayload.city,
+      country: 'MX',
+      location: validVenuePayload.location,
+      latestMapVersion: 0,
+      ownerId: 'route-test-user',
+    });
+    expect(typeof response.body.id).toBe('string');
+    expect(typeof response.body.createdAt).toBe('string');
+  });
+
+  it('returns 409 "venue already exists" for the same name and position without osmRef', async () => {
+    jest.spyOn(venueRepository, 'findDuplicate').mockResolvedValue(buildVenue({ id: 'venue-existing' }));
+
+    const response = await request(app)
+      .post('/venues')
+      .set('Authorization', OWNER_AUTHORIZATION)
+      .send(validVenuePayload)
+      .expect(409);
+
+    expect(response.body).toEqual({ error: 'venue already exists', existingVenueId: 'venue-existing' });
+  });
+
   it('returns 500 when registration fails unexpectedly', async () => {
     jest.spyOn(venueService, 'registerVenue').mockRejectedValue(new Error('Database disconnected'));
 
