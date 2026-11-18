@@ -37,8 +37,21 @@ implemented yet.
 
 ## 2. Authentication & Authorization
 
-Every venue endpoint requires a partner access token. Verification happens in the backend
+Venue routes require a valid JWT bearer access token. Verification happens in the backend
 (`src/middleware/authenticate.ts` + `src/middleware/requireRole.ts`); the front-end is never trusted.
+Read endpoints (`GET /venues`, `GET /venues/{id}`) accept any authenticated role (`VENUE_OWNER`, `ORGANIZER`, `FAN`, etc.); write endpoints require `VENUE_OWNER`.
+
+### Route Authorization Table
+
+| Method | Path | Authentication / Allowed Roles | Notes |
+|---|---|---|---|
+| `GET` | `/health` | Public (none) | Process liveness |
+| `GET` | `/ready` | Public (none) | Store readiness (`venue-db`) |
+| `GET` | `/venues` | Authenticated (any role) | Returns only venues with `latestMapVersion >= 1` |
+| `GET` | `/venues/{id}` | Authenticated (any role) | Returns venue metadata including `latestMapVersion` |
+| `POST` | `/venues` | Authenticated (`VENUE_OWNER`) | `403` for other roles |
+| `POST` | `/venues/{id}/map` | Authenticated (`VENUE_OWNER` + owner) | Stub `501`; `403` for other roles |
+| `GET` | `/venues/{id}/map` | Authenticated (`VENUE_OWNER`, `ORGANIZER` stub) | Stub `501`; `400` on invalid `version` |
 
 | Header | Description | Example Value |
 |---|---|---|
@@ -51,7 +64,7 @@ Token contract (single source of truth: [`src/auth/authConfig.ts`](../src/auth/a
 | Algorithm | `HS256` (fixed explicitly) |
 | Secret | `JWT_SECRET` environment variable (never hardcoded) |
 | `sub` claim | User id, used as the venue `ownerId` |
-| `role` claim | `VENUE_OWNER` or `ORGANIZER` |
+| `role` claim | `VENUE_OWNER`, `ORGANIZER`, `FAN`, etc. |
 | `exp` claim | Expiration, enforced on every request |
 
 | Situation | Response |
@@ -120,25 +133,29 @@ The probe gives up after 2 seconds, so the response arrives quickly even while t
 
 ---
 
-### 3.3 List Venues
+### 3.3 List & Search Venues
 
-Paginated catalogue of every registered venue, from every owner, ordered by creation date.
+Paginated search across registered venues that have at least one saved map (`latestMapVersion >= 1`). Venues without a map (`latestMapVersion === 0`) are excluded because they cannot host events.
 
 - **Method**: `GET`
 - **Path**: `/venues` (also accessible via `/api/venues`)
-- **Authentication**: Required (`VENUE_OWNER` or `ORGANIZER`)
+- **Authentication**: Required (any authenticated role; `401` if missing/invalid)
 - **Query parameters**:
 
   | Name | Type | Default | Rule |
   |---|---|---|---|
   | `page` | integer | `1` | `>= 1` |
   | `limit` | integer | `20` | `1..100` |
-  | `lat`, `lng`, `radius_km` | number | — | All three or none; `radius_km` in `(0, 500]` |
-  | `country` | string | — | ISO 3166-1 alpha-2 |
-  | `city`, `name` | string | — | Non-empty |
+  | `lat`, `lng`, `radius_km` | number | — | All three or none; `lat` in `[-90, 90]`, `lng` in `[-180, 180]`, `radius_km` in `(0, 500]` |
+  | `country` | string | — | ISO 3166-1 alpha-2 (normalized upper case) |
+  | `city` | string | — | Non-empty; matched case- and accent-insensitively |
+  | `name` | string | — | Non-empty partial match, case- and accent-insensitive |
 
-  Search filters are validated (`400` when invalid) but **not implemented yet**: a valid request that uses
-  any of them answers `501 Not Implemented` until the search ticket lands.
+- **Behavior & Index Strategy**:
+  - **Geospatial search (`lat`, `lng`, `radius_km`)**: Executes a MongoDB `$geoNear` pipeline backed by the `venues_location_2dsphere` index (`location: '2dsphere'`, inclusive `maxDistance = radius_km * 1000` m), ordered strictly ascending by distance. Each item includes `distance_km` rounded to 2 decimal places (spherical distance matches Haversine within ~0.3% / ±0.05 km at typical city radii). Non-geospatial queries omit `distance_km`.
+  - **Name search (`name`)**: Normalizes the query with `normalizeVenueName` (NFD diacritic stripping, lower-casing, punctuation collapsed to spaces) and matches against the indexed `nameNormalized` field using an escaped substring regex (`contains` semantics). Unlike a bounded prefix regex (`^prefix`), substring matching scans `nameNormalized` index keys, narrowed first by `latestMapVersion >= 1` and optional `country`/`city` filters.
+  - **Zero matches & out-of-range pages**: Always returns `200` with `data: []` and consistent `pagination` (`totalPages = Math.ceil(total / limit)`), never `404`.
+  - **Unknown query params**: Ignored.
 - **Response**: `200 OK`
   ```json
   {
@@ -154,14 +171,22 @@ Paginated catalogue of every registered venue, from every owner, ordered by crea
         "externalId": "282893735",
         "externalSource": "nominatim",
         "osmRef": "way:123456",
-        "latestMapVersion": 0,
+        "latestMapVersion": 1,
         "ownerId": "owner-1",
-        "createdAt": "2026-03-28T09:00:00.000Z"
+        "createdAt": "2026-03-28T09:00:00.000Z",
+        "distance_km": 4.12
       }
     ],
     "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
   }
   ```
+- **Error Responses**:
+  - `400 Bad Request`: Invalid coordinates or radius returns:
+    ```json
+    { "error": "Invalid coordinates or radius" }
+    ```
+    Incomplete location triplets (`lat` without `lng`/`radius_km`), invalid pagination (`page`/`limit`), or invalid `country`/`city`/`name` also return `400`.
+  - `401 Unauthorized`: Missing or invalid authentication token.
 
 ---
 
@@ -236,15 +261,14 @@ Creates a new physical venue record. The `ownerId` is automatically attributed f
 
 ### 3.5 Get Venue by ID
 
-Returns a single venue so the event flow can validate that a venue exists.
+Returns a single venue (including `latestMapVersion` and `ownerId`, without map geometry) so clients and event flows can inspect venue details or decide edit permissions. Venues without a map return `latestMapVersion: 0`.
 
 - **Method**: `GET`
 - **Path**: `/venues/{id}` (also accessible via `/api/venues/{id}`)
-- **Authentication**: Required (`VENUE_OWNER` or `ORGANIZER`)
+- **Authentication**: Required (any authenticated role)
 - **Response**: `200 OK` with the venue object (same shape as `3.4`)
 - **Error Responses**:
   - `401 Unauthorized`: Missing or invalid authentication token.
-  - `403 Forbidden`: Authenticated role is not a partner role.
   - `404 Not Found`: No venue exists with that ID.
     ```json
     {

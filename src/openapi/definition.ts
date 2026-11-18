@@ -208,12 +208,12 @@ function venueByIdOperations(suffix: string): PathItemObject {
     get: {
       operationId: `getVenueById${suffix}`,
       summary: 'Get a venue by ID',
+      description: 'Available to any authenticated user. Returns the venue record including latestMapVersion without map geometry.',
       parameters: [idParameter],
       security: partnerSecurity,
       responses: {
         200: jsonResponse('Venue found', venueRef),
         401: jsonResponse('Missing, invalid or expired access token', errorRef),
-        403: jsonResponse('Authenticated role is not a partner role', errorRef),
         404: jsonResponse('Venue not found', errorRef),
         500: jsonResponse('Server error', errorRef),
       },
@@ -226,17 +226,16 @@ function venueOperations(suffix: string): PathItemObject {
     get: {
       operationId: `listVenues${suffix}`,
       summary: 'List and search venues',
-      description: 'Paginated by creation date. Search filters (lat/lng/radius_km, country, city, name) are '
-        + 'validated and documented here; until search is implemented a request using any of them answers 501.',
+      description: 'Paginated search across venues with at least one saved map version (latestMapVersion >= 1). '
+        + 'Available to any authenticated user. Geospatial queries (lat, lng, radius_km) sort ascending by '
+        + 'distance and include distance_km rounded to two decimal places.',
       parameters: listVenuesParameters,
       security: partnerSecurity,
       responses: {
         200: jsonResponse('One page of venues', { $ref: '#/components/schemas/VenuePage' }),
-        400: jsonResponse('Invalid pagination or filter parameters', errorRef),
+        400: jsonResponse('Invalid pagination, filter parameters, or coordinates/radius', errorRef),
         401: jsonResponse('Missing, invalid or expired access token', errorRef),
-        403: jsonResponse('Authenticated role is not a partner role', errorRef),
         500: jsonResponse('Server error', errorRef),
-        501: notImplemented,
       },
     },
     post: {
@@ -371,11 +370,26 @@ export const openApiDefinition: OpenAPIDocument = {
           totalPages: { type: 'integer', minimum: 0 },
         },
       },
+      VenueSearchItem: {
+        allOf: [
+          venueRef,
+          {
+            type: 'object',
+            properties: {
+              distance_km: {
+                type: 'number',
+                minimum: 0,
+                description: 'Distance in kilometres from the search centre (rounded to 2 decimals). Present only on geospatial searches.',
+              },
+            },
+          },
+        ],
+      },
       VenuePage: {
         type: 'object',
         required: ['data', 'pagination'],
         properties: {
-          data: { type: 'array', items: venueRef },
+          data: { type: 'array', items: { $ref: '#/components/schemas/VenueSearchItem' } },
           pagination: { $ref: '#/components/schemas/Pagination' },
         },
       },
