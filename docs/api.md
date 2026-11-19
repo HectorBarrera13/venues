@@ -50,8 +50,8 @@ Read endpoints (`GET /venues`, `GET /venues/{id}`) accept any authenticated role
 | `GET` | `/venues` | Authenticated (any role) | Returns only venues with `latestMapVersion >= 1` |
 | `GET` | `/venues/{id}` | Authenticated (any role) | Returns venue metadata including `latestMapVersion` |
 | `POST` | `/venues` | Authenticated (`VENUE_OWNER`) | `403` for other roles |
-| `POST` | `/venues/{id}/map` | Authenticated (`VENUE_OWNER` + owner) | Stub `501`; `403` for other roles |
-| `GET` | `/venues/{id}/map` | Authenticated (`VENUE_OWNER`, `ORGANIZER` stub) | Stub `501`; `400` on invalid `version` |
+| `POST` | `/venues/{id}/map` | Authenticated (`VENUE_OWNER` + owner) | `201` new immutable version; `403` other roles or non-owner |
+| `GET` | `/venues/{id}/map` | Authenticated (`VENUE_OWNER`, `ORGANIZER`) | `200` latest or `?version=N`; `400` on invalid `version`; `404` venue without map |
 
 | Header | Description | Example Value |
 |---|---|---|
@@ -278,17 +278,39 @@ Returns a single venue (including `latestMapVersion` and `ownerId`, without map 
 
 ---
 
-### 3.6 Seat Map (contract stub)
+### 3.6 Seat Map
 
 Full format, rules and examples: [`docs/map-format.md`](map-format.md).
 
-| Method | Path | Roles | Answers today | Final contract |
-|---|---|---|---|---|
-| `POST` | `/venues/{id}/map` | `VENUE_OWNER` | `501` (`401`/`403` enforced) | `201`, `400`, `401`, `403`, `404`, `422` |
-| `GET` | `/venues/{id}/map[?version=N]` | `VENUE_OWNER`, `ORGANIZER` | `501` (`400` for a bad `version`, `401`/`403` enforced) | `200`, `400`, `404` |
+| Method | Path | Roles | Statuses |
+|---|---|---|---|
+| `POST` | `/venues/{id}/map` | `VENUE_OWNER` + owner of the venue | `201`, `400`, `401`, `403`, `404`, `422` |
+| `GET` | `/venues/{id}/map[?version=N]` | any authenticated partner role | `200`, `400`, `401`, `404` |
 
-Both are also mounted under `/api/venues/{id}/map`. The routes exist so clients integrate against the final
-URLs and status codes; the operations are implemented by later tickets. Map bodies may be up to 10 MB.
+Both are also mounted under `/api/venues/{id}/map`. Map bodies may be up to 10 MB.
+
+**Saving (`POST`).** Check order: `401` missing token, `403` role or non-owner, `404`
+unknown venue, `400` malformed payload (field path in the message), `422` with
+`{ "error": "Map validation failed", "errors": [...] }` listing every rule violation at
+once. On success the payload is stored **transactionally** as version
+`latestMapVersion + 1` and `Venue.latestMapVersion` moves with it in the same
+transaction; concurrent saves are serialized by the unique `(venueId, version)` index
+(the loser retries on the fresh pointer), so two saves never collide or lose an update.
+
+**Immutability (VEN-205).** Stored versions are never updated or deleted: the map
+repository exposes only `saveNewVersion`, `findLatest` and `findByVenueVersion`, and no
+route mutates map data. `GET /venues/{id}/map?version=n` always returns the identical
+document, including its seat and zone ids.
+
+**Seat id stability (VEN-206).** Within version `n`, a `seat.id` always identifies the
+same physical seat of version `n`; ids are provided by the editor, validated as unique
+per version and never rewritten by the backend. The same id in different versions is
+possible but carries no implicit relationship. Booking and Events should reference a
+seat as `(venueId, version, seatId)`.
+
+**Reading (`GET`).** Without `version` returns the latest; with `?version=N` the exact
+one. `404` when the venue does not exist, has no map yet (`latestMapVersion === 0`) or
+the version was never saved. Non-integer or non-positive `version` is `400`.
 
 ---
 
