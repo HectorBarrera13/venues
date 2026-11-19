@@ -1,40 +1,22 @@
-import { Router, type NextFunction, type Request, type Response } from 'express';
+import { Router } from 'express';
+import { mapController } from '../controllers/MapController';
 import { AUTH_CONFIG, PARTNER_ROLES } from '../auth/authConfig';
-import ApiError from '../errors/ApiError';
 import authenticate from '../middleware/authenticate';
 import requireRole from '../middleware/requireRole';
-import { parseMapVersionQuery } from '../validation/mapInput';
 
 /**
  * Seat-map routes, mounted at `/venues/:id/map`. Contract: docs/map-format.md.
  *
- * Contract stubs (VEN-003): authentication, roles and request parameters are
- * already enforced so clients can integrate against the final URLs and status
- * codes; the operations themselves answer 501 until they are implemented.
+ * POST saves a new immutable version (VEN-203) and must come from the venue's
+ * owner; GET reads the latest or an exact version and is open to every
+ * authenticated partner role (VEN-204/VEN-308). Status ordering is enforced by
+ * MapService: 404 unknown venue, 403 not the owner, 400 malformed payload,
+ * 422 business-rule violations.
  */
 const router = Router({ mergeParams: true });
 
-router.post(
-  '/',
-  authenticate,
-  requireRole(AUTH_CONFIG.roles.VENUE_OWNER),
-  (_req: Request, _res: Response, next: NextFunction) => {
-    next(ApiError.notImplemented('Saving a seat map is not implemented yet'));
-  }
-);
+router.post('/', authenticate, requireRole(AUTH_CONFIG.roles.VENUE_OWNER), mapController.save);
 
-router.get(
-  '/',
-  authenticate,
-  requireRole(...PARTNER_ROLES),
-  (req: Request, _res: Response, next: NextFunction) => {
-    try {
-      parseMapVersionQuery(req.query);
-      next(ApiError.notImplemented('Reading a seat map is not implemented yet'));
-    } catch (error) {
-      next(error);
-    }
-  }
-);
+router.get('/', authenticate, requireRole(...PARTNER_ROLES), mapController.read);
 
 export default router;
