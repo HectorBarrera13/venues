@@ -1,0 +1,16 @@
+# Integration Sheriff (P7) and Shared File Ownership (VEN-703)
+# Changes to shared integration files require review from the declared owner.
+
+# P7 — Integration Sheriff (routing, OpenAPI contract, platform & QA)
+/src/app.ts                     @cristTianDeMartino
+/src/routes/venueRoutes.ts      @cristTianDeMartino
+/src/routes/mapRoutes.ts        @cristTianDeMartino
+/src/openapi/definition.ts      @cristTianDeMartino
+/openapi.json                   @cristTianDeMartino
+/compose.yaml                   @cristTianDeMartino
+/tests/contracts/               @cristTianDeMartino
+/tests/integration/             @cristTianDeMartino
+/.github/                       @cristTianDeMartino
+
+# P1 — Shared Database Schema
+/prisma/schema.prisma           @HectorBarrera13
