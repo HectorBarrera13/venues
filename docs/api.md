@@ -308,6 +308,19 @@ per version and never rewritten by the backend. The same id in different version
 possible but carries no implicit relationship. Booking and Events should reference a
 seat as `(venueId, version, seatId)`.
 
+Example handoff payload consumed by Team Aura (`event-service`) / Team Sap-atitos (`booking-service`):
+
+```json
+{
+  "venueId": "8e2a4d19-77c3-4f50-b6e8-1a9d3c7b5e24",
+  "mapVersion": 1,
+  "seatIds": ["s-floor-A-01", "s-floor-A-02"],
+  "readUrl": "/venues/8e2a4d19-77c3-4f50-b6e8-1a9d3c7b5e24/map?version=1"
+}
+```
+
+Even if the venue owner later saves `mapVersion: 2` (splitting or renaming zones), `GET /venues/{id}/map?version=1` continues to return the exact v1 snapshot so published events and active bookings never break.
+
 **Reading (`GET`).** Without `version` returns the latest; with `?version=N` the exact
 one. `404` when the venue does not exist, has no map yet (`latestMapVersion === 0`) or
 the version was never saved. Non-integer or non-positive `version` is `400`.
