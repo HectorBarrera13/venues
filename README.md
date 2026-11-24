@@ -121,6 +121,14 @@ This service uses Prisma ORM 6.19.3 for MongoDB. Prisma 7 does not support the M
    npm run docker:logs
    ```
 
+5. Verify that transactions work (one commit and one forced rollback against `rs0`):
+
+   ```bash
+   npm run db:verify-tx:docker
+   ```
+
+   The seat-map save (`POST /venues/{id}/map`) writes the new version and moves `latestMapVersion` in a single Prisma `$transaction`; MongoDB only supports that on a replica set, so this check must print `Commit: ok` and `Rollback: ok`.
+
 Common lifecycle commands:
 
 | Command | Description |
@@ -170,17 +178,29 @@ The venue routes now use `VenueRepository.ts`, which stores records through Pris
 | `npm run docker:logs` | `docker compose logs -f api` | Streams API container logs |
 | `npm run db:push:docker` | `docker compose exec api npm run db:push` | Creates collections and indexes in the containerized MongoDB |
 | `npm run db:check:docker` | `docker compose exec api npm run db:check` | Pings MongoDB from inside the container |
+| `npm run db:verify-tx:docker` | `docker compose exec api npm run db:verify-tx` | Runs the transaction commit/rollback check inside the container |
 | `npm run dev` | `tsx watch src/server.ts` | Starts the server directly on the host (see Docker notes above) |
 | `npm start` | `npm run build && node dist/src/server.js` | Compiles and starts the server |
 | `npm test` | `jest` | Executes the unit test suite |
+| `npm run test:integration` | `jest --config jest.integration.config.cjs --runInBand` | Integration and e2e suites on a real MongoDB replica set (see below) |
 | `npm run lint` | `eslint .` | Runs static code analysis |
 | `npm run build` | `tsc -p tsconfig.json && tsc -p tsconfig.tests.json` | Compiles the service and checks TypeScript tests |
 | `npm run db:generate` | `prisma generate` | Generates the Prisma client from `prisma/schema.prisma` |
 | `npm run db:push` | `prisma db push && npm run db:indexes` | Syncs collections and Prisma indexes, then creates the raw MongoDB indexes |
 | `npm run db:indexes` | `tsx scripts/ensure-indexes.ts` | Creates the `2dsphere` (`location`) and partial unique (`osmRef`) indexes |
 | `npm run db:check` | `tsx scripts/check-database.ts` | Pings MongoDB using `DATABASE_URL` from `.env` |
+| `npm run db:verify-tx` | `tsx scripts/verify-transaction.ts` | Commits one transaction and rolls another back; fails unless MongoDB is a working replica set |
 | `npm run openapi:generate` | `tsx scripts/generate-openapi.ts` | Generates `openapi.json` without starting the server |
 | `npm run token:make` | `tsx scripts/make-token.ts` | Mints a development access token (`scripts/make-token`) |
+
+### Integration tests
+
+`npm run test:integration` runs `tests/integration/**` against the real app, the real Prisma client and a MongoDB **replica set**:
+
+- With `INTEGRATION_DATABASE_URL` set (CI, or your `docker compose` Mongo), it uses that database.
+- Without it, it boots a throw-away single-node replica set with `mongodb-memory-server` (the first run downloads a `mongod` binary), so no Docker is needed.
+
+In both cases the schema and raw indexes are applied with `npm run db:push` first. CI runs this suite in the `integration` job of `on_pr.yml` against `mongo:7.0` started with `--replSet rs0`, the same image as `compose.yaml`.
 
 ---
 

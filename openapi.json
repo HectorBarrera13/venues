@@ -589,7 +589,7 @@
       "post": {
         "operationId": "saveVenueMap",
         "summary": "Save a new seat map version",
-        "description": "Stores the payload as version latestMapVersion + 1. Versions are immutable. Requires the VENUE_OWNER role and ownership of the venue. Format: docs/map-format.md. Contract stub: answers 501 until implemented.",
+        "description": "Stores the payload as version latestMapVersion + 1. Versions are immutable. Requires the VENUE_OWNER role and ownership of the venue. Format: docs/map-format.md.",
         "parameters": [
           {
             "name": "id",
@@ -686,23 +686,13 @@
                 }
               }
             }
-          },
-          "501": {
-            "description": "Not implemented yet: the route is a contract stub",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
           }
         }
       },
       "get": {
         "operationId": "getVenueMap",
         "summary": "Get a seat map version",
-        "description": "Returns the latest version, or the one given in \"version\". Contract stub: answers 501 until implemented.",
+        "description": "Returns the latest version, or the one given in \"version\".",
         "parameters": [
           {
             "name": "id",
@@ -782,16 +772,6 @@
           },
           "500": {
             "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not implemented yet: the route is a contract stub",
             "content": {
               "application/json": {
                 "schema": {
@@ -807,7 +787,7 @@
       "post": {
         "operationId": "saveVenueMapApi",
         "summary": "Save a new seat map version",
-        "description": "Stores the payload as version latestMapVersion + 1. Versions are immutable. Requires the VENUE_OWNER role and ownership of the venue. Format: docs/map-format.md. Contract stub: answers 501 until implemented.",
+        "description": "Stores the payload as version latestMapVersion + 1. Versions are immutable. Requires the VENUE_OWNER role and ownership of the venue. Format: docs/map-format.md.",
         "parameters": [
           {
             "name": "id",
@@ -904,23 +884,13 @@
                 }
               }
             }
-          },
-          "501": {
-            "description": "Not implemented yet: the route is a contract stub",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
           }
         }
       },
       "get": {
         "operationId": "getVenueMapApi",
         "summary": "Get a seat map version",
-        "description": "Returns the latest version, or the one given in \"version\". Contract stub: answers 501 until implemented.",
+        "description": "Returns the latest version, or the one given in \"version\".",
         "parameters": [
           {
             "name": "id",
@@ -1000,16 +970,6 @@
           },
           "500": {
             "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not implemented yet: the route is a contract stub",
             "content": {
               "application/json": {
                 "schema": {

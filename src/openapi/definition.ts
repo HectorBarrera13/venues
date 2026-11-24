@@ -150,8 +150,6 @@ const listVenuesParameters: ParameterObject[] = [
   }),
 ];
 
-const notImplemented = jsonResponse('Not implemented yet: the route is a contract stub', errorRef);
-
 const mapVersionRef: JsonSchema = { $ref: '#/components/schemas/MapVersion' };
 
 function mapOperations(suffix: string): PathItemObject {
@@ -160,8 +158,7 @@ function mapOperations(suffix: string): PathItemObject {
       operationId: `saveVenueMap${suffix}`,
       summary: 'Save a new seat map version',
       description: 'Stores the payload as version latestMapVersion + 1. Versions are immutable. '
-        + 'Requires the VENUE_OWNER role and ownership of the venue. Format: docs/map-format.md. '
-        + 'Contract stub: answers 501 until implemented.',
+        + 'Requires the VENUE_OWNER role and ownership of the venue. Format: docs/map-format.md.',
       parameters: [idParameter],
       security: partnerSecurity,
       requestBody: {
@@ -178,14 +175,12 @@ function mapOperations(suffix: string): PathItemObject {
           $ref: '#/components/schemas/MapValidationErrors',
         }),
         500: jsonResponse('Server error', errorRef),
-        501: notImplemented,
       },
     },
     get: {
       operationId: `getVenueMap${suffix}`,
       summary: 'Get a seat map version',
-      description: 'Returns the latest version, or the one given in "version". '
-        + 'Contract stub: answers 501 until implemented.',
+      description: 'Returns the latest version, or the one given in "version".',
       parameters: [
         idParameter,
         queryParameter('version', 'Map version to read; latest when omitted.', { type: 'integer', minimum: 1 }),
@@ -198,7 +193,6 @@ function mapOperations(suffix: string): PathItemObject {
         403: jsonResponse('Authenticated role is not a partner role', errorRef),
         404: jsonResponse('Venue not found, venue without map, or unknown version', errorRef),
         500: jsonResponse('Server error', errorRef),
-        501: notImplemented,
       },
     },
   };

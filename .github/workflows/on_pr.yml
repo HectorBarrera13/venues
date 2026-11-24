@@ -13,6 +13,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # mongodb-memory-server is only the local fallback of test:integration;
+  # CI provides a real replica set, so skip its ~600 MB binary download.
+  MONGOMS_DISABLE_POSTINSTALL: "1"
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -43,3 +48,52 @@ jobs:
 
       - name: Check Build / Syntax
         run: npm run build
+
+  integration:
+    # Runs the transactional and end-to-end suites against the same
+    # single-node mongo:7.0 replica set (rs0) that compose.yaml starts.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: mongodb://localhost:27017/venue_db?replicaSet=rs0&directConnection=true
+      INTEGRATION_DATABASE_URL: mongodb://localhost:27017/venue_db_integration?replicaSet=rs0&directConnection=true
+      JWT_SECRET: ci-integration-secret
+
+    steps:
+      - name: "checkout code"
+        uses: actions/checkout@v5
+
+      - name: "Setup node js"
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Start MongoDB replica set
+        run: |
+          docker run -d --name venues-mongo -p 27017:27017 mongo:7.0 --replSet rs0 --bind_ip_all
+          for i in $(seq 1 30); do
+            docker exec venues-mongo mongosh --quiet --eval "db.runCommand({ ping: 1 }).ok" && break
+            sleep 2
+          done
+          docker exec venues-mongo mongosh --quiet --eval \
+            "rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] })"
+          for i in $(seq 1 30); do
+            docker exec venues-mongo mongosh --quiet --eval "rs.status().myState" | grep -q '^1$' && break
+            sleep 2
+          done
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Push schema and indexes
+        run: npm run db:push
+
+      - name: Check database connection
+        run: npm run db:check
+
+      - name: Verify transactions (commit + rollback)
+        run: npm run db:verify-tx
+
+      - name: Run integration and e2e tests
+        run: npm run test:integration
