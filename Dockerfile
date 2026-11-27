@@ -61,6 +61,10 @@ RUN npm ci --omit=dev --ignore-scripts
 
 # Generated Prisma client + query engine: not produced by npm ci, copied from build.
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
+# Prisma engine binaries (schema-engine, query-engine): --ignore-scripts skips the
+# @prisma/engines postinstall that downloads them. Copied from build so the CLI can
+# run "prisma db push" inside the deployed container (shrine startup command).
+COPY --from=build /app/node_modules/@prisma/engines ./node_modules/@prisma/engines
 COPY --from=build /app/dist ./dist
 
 USER node
