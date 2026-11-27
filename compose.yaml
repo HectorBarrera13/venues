@@ -40,7 +40,8 @@ services:
       mongo:
         condition: service_healthy
     ports:
-      - "3000:3000"
+      # Set VENUES_API_PORT in .env when another app already owns host port 3000.
+      - "${VENUES_API_PORT:-3000}:3000"
     env_file:
       - .env
     environment:

@@ -109,11 +109,20 @@ This service uses Prisma ORM 6.19.3 for MongoDB. Prisma 7 does not support the M
 
    The `api` container bind-mounts the working directory and runs `tsx watch`, so editing files on the host reloads the server automatically.
 
+   > When host port `3000` is already taken by another app, set `VENUES_API_PORT` in `.env`
+   > (for example `3100`) instead of stopping that app; the container keeps listening on `3000`
+   > internally. Point the Backstage at the same port with `VENUES_API_ORIGIN`.
+
 3. Create the collections and indexes once:
 
    ```bash
    npm run db:push:docker
    ```
+
+   > `compose.yaml` keeps `node_modules` in an anonymous volume, so after changing
+   > `prisma/schema.prisma` the container can still hold the previously generated client and
+   > queries fail with an unknown-field error. Regenerate it in place with
+   > `npm run db:generate:docker` (`--build` alone does not, because the dependency layer is cached).
 
 4. Follow the logs:
 
@@ -135,6 +144,7 @@ Common lifecycle commands:
 |---|---|
 | `npm run docker:up` | Build and start MongoDB plus the API |
 | `npm run docker:logs` | Stream API logs |
+| `npm run db:generate:docker` | Regenerate the Prisma client inside the `api` container after a schema change |
 | `npm run docker:down` | Stop and remove both containers |
 | `docker compose down -v` | Stop and **also delete the database volume** |
 

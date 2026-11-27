@@ -15,6 +15,7 @@
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f api",
     "db:push:docker": "docker compose exec api npm run db:push",
+    "db:generate:docker": "docker compose exec api npx prisma generate",
     "db:check:docker": "docker compose exec api npm run db:check",
     "db:verify-tx:docker": "docker compose exec api npm run db:verify-tx",
     "token:make": "tsx scripts/make-token.ts",
